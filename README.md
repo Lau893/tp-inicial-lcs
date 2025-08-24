@@ -1,9 +1,4 @@
-=
-    PROYECTO DE SIMULACIÓN Y ANÁLISIS DE DATOS DE PRODUCCIÓN INDUSTRIA ALIMENTICIA
-=
-
-Fecha de Creación: 24 de Agosto de 2025
-Versión: 2.0
+# PROYECTO DE SIMULACIÓN Y ANÁLISIS DE DATOS DE PRODUCCIÓN INDUSTRIA ALIMENTICIA
 
 ----------------------------------------------------------------------
 1. DESCRIPCIÓN GENERAL
@@ -22,7 +17,7 @@ El proyecto se divide en dos fases principales:
 ----------------------------------------------------------------------
 2. ESTRUCTURA DEL PROYECTO
 ----------------------------------------------------------------------
-
+```text
 / (Carpeta Raíz del Proyecto)
 |
 |-- administracion_db/
@@ -35,7 +30,7 @@ El proyecto se divide en dos fases principales:
 |-- gestion_produccion.db       # Archivo de Base de Datos. Generado por `create_db.py`, contiene todos los datos simulados.
 |
 `-- README.txt                  # Este archivo de documentación.
-
+```
 ----------------------------------------------------------------------
 3. GENERACIÓN DE LA BASE DE DATOS (El Proceso de Mockeo)
 ----------------------------------------------------------------------
@@ -105,3 +100,7 @@ Este comando creará (o recreará) el archivo `gestion_produccion.db` en la carp
 2.  VS Code abrirá la interfaz de Jupyter Notebook.
 3.  Ejecuta la primera celda para instalar las dependencias.
 4.  Ejecuta las celdas restantes en orden haciendo clic en el botón de "Play" (▶️) que aparece a la izquierda de cada una, o usando el atajo `Shift + Enter`.
+
+UML:
+<img width="804" height="657" alt="image" src="https://github.com/user-attachments/assets/cd322a31-fec1-4421-9a55-08bcb30765c0" />
+
