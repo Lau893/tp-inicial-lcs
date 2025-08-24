@@ -101,6 +101,8 @@ Este comando creará (o recreará) el archivo `gestion_produccion.db` en la carp
 3.  Ejecuta la primera celda para instalar las dependencias.
 4.  Ejecuta las celdas restantes en orden haciendo clic en el botón de "Play" (▶️) que aparece a la izquierda de cada una, o usando el atajo `Shift + Enter`.
 
-UML:
+----------------------------------------------------------------------
+6. ARQUITECTURA DE DATOS
+----------------------------------------------------------------------
 <img width="804" height="657" alt="image" src="https://github.com/user-attachments/assets/cd322a31-fec1-4421-9a55-08bcb30765c0" />
 
