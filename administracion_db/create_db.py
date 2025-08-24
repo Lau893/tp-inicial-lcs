@@ -18,56 +18,85 @@ INSERTS_FILENAME = 'inserts.sql'
 def generate_asistencia_sql():
     """
     Genera sentencias SQL para mockear los datos de la tabla de asistencia,
-    asegurando que ningún empleado tenga más de 5 llegadas tarde en total.
+    asegurando una distribución mensual realista de llegadas tarde.
     
     Returns:
         str: Un string con todas las sentencias INSERT para la asistencia.
     """
-    print("Generando datos de asistencia con un límite de 5 llegadas tarde por empleado...")
+    print("Generando datos de asistencia con distribución mensual de retrasos...")
     
     employee_ids = list(range(1, 17))
     
-    # --- LÓGICA DE LÍMITE DE LLEGADAS TARDE ---
-    # Se crea un diccionario para contar las llegadas tarde de cada empleado.
-    llegadas_tarde_contador = {emp_id: 0 for emp_id in employee_ids}
-    MAX_LLEGADAS_TARDE = 5
+    # --- LÓGICA DE PERFILES MENSUALES DE PUNTUALIDAD ---
+    # Define el rango de llegadas tarde que un empleado puede tener POR MES.
+    # Formato: (min_llegadas_tarde_por_mes, max_llegadas_tarde_por_mes)
+    perfiles = {
+        'siempre_puntual': (0, 0),
+        'puntual': (0, 1),
+        'ocasional': (1, 2),
+        'recurrente': (2, 4)
+    }
     
-    # Se genera un historial de un año hasta la fecha actual.
+    # Se asigna un perfil a cada empleado.
+    asignacion_perfiles = {
+        1: 'siempre_puntual', 2: 'siempre_puntual', 3: 'puntual', 4: 'ocasional',
+        5: 'ocasional', 6: 'recurrente', 7: 'puntual', 8: 'recurrente',
+        9: 'puntual', 10: 'recurrente', 11: 'ocasional', 12: 'ocasional',
+        13: 'siempre_puntual', 14: 'puntual', 15: 'puntual', 16: 'puntual'
+    }
+    
+    # --- Configuración del Período de Simulación ---
     end_date = datetime.now()
     start_date = end_date - timedelta(days=365)
-    num_days = (end_date - start_date).days
-    simulation_days = [start_date + timedelta(days=i) for i in range(num_days + 1)]
     
-    sql_inserts_list = []
+    # --- PLANIFICACIÓN DE LLEGADAS TARDE ---
+    retrasos_planificados = set()
+    
+    # Se itera mes por mes para planificar los retrasos
+    current_date = start_date
+    while current_date <= end_date:
+        # Se obtienen los días laborables del mes actual
+        month_work_days = []
+        d = current_date
+        while d.month == current_date.month and d <= end_date:
+            if d.weekday() < 5:
+                month_work_days.append(d)
+            d += timedelta(days=1)
+            
+        if month_work_days:
+            for emp_id in employee_ids:
+                perfil = asignacion_perfiles.get(emp_id, 'puntual')
+                min_retrasos, max_retrasos = perfiles[perfil]
+                
+                # Se decide cuántas veces llegará tarde este empleado ESTE MES.
+                num_retrasos_mes = random.randint(min_retrasos, max_retrasos)
+                
+                if num_retrasos_mes > 0:
+                    # Se eligen los días de retraso dentro de los días laborables del mes.
+                    dias_de_retraso = random.sample(month_work_days, min(num_retrasos_mes, len(month_work_days)))
+                    for dia in dias_de_retraso:
+                        retrasos_planificados.add((dia.date(), emp_id))
+        
+        # Avanzar al primer día del siguiente mes
+        next_month = (current_date.month % 12) + 1
+        next_year = current_date.year + (1 if current_date.month == 12 else 0)
+        current_date = current_date.replace(year=next_year, month=next_month, day=1)
 
-    for day in simulation_days:
-        if day.weekday() >= 5: # Omitir fines de semana
-            continue
+    # --- GENERACIÓN DE REGISTROS DE ASISTENCIA ---
+    sql_inserts_list = []
+    all_work_days = [start_date + timedelta(days=i) for i in range((end_date - start_date).days + 1) if (start_date + timedelta(days=i)).weekday() < 5]
+
+    for day in all_work_days:
         for emp_id in employee_ids:
-            # Simular ausencias
-            if random.random() < 0.10:
+            if random.random() < 0.10: # Simular ausencias
                 continue
             
-            # --- LÓGICA DE CONTROL DE PUNTUALIDAD ---
-            # Se verifica si el empleado ya alcanzó su límite de llegadas tarde.
-            if llegadas_tarde_contador[emp_id] >= MAX_LLEGADAS_TARDE:
-                # Si ya alcanzó el límite, se fuerza a que llegue a tiempo o temprano.
-                entry_variation = random.randint(-10, 0)
+            if (day.date(), emp_id) in retrasos_planificados:
+                entry_variation = random.randint(10, 20)
             else:
-                # Si aún no alcanza el límite, se permite una variación aleatoria.
-                # Se ajusta la probabilidad para que las llegadas tarde sean menos frecuentes.
-                if random.random() < 0.03: # Probabilidad baja (3%) de llegar tarde en un día dado
-                    entry_variation = random.randint(1, 15)
-                else:
-                    entry_variation = random.randint(-10, 0)
-
-            # Si la variación resultó en una llegada tarde, se incrementa el contador.
-            if entry_variation > 0:
-                llegadas_tarde_contador[emp_id] += 1
+                entry_variation = random.randint(-10, 0)
             
             check_in_time = datetime(day.year, day.month, day.day, 8, 0, 0) + timedelta(minutes=entry_variation)
-            
-            # La hora de salida se mantiene con una variación mínima.
             exit_variation = random.randint(-5, 5)
             check_out_time = datetime(day.year, day.month, day.day, 17, 0, 0) + timedelta(minutes=exit_variation)
             
@@ -75,19 +104,19 @@ def generate_asistencia_sql():
             sql_inserts_list.append(f"INSERT INTO asistencia (id_empleado, fecha, tipo) VALUES ({emp_id}, '{check_out_time.strftime('%Y-%m-%d %H:%M:%S')}', 'salida');")
     
     print(f"Se generaron {len(sql_inserts_list)} registros de asistencia.")
-    # Imprimimos el contador final para verificar que la lógica funcionó.
-    print("Contador final de llegadas tarde por empleado:", llegadas_tarde_contador)
     return "\n".join(sql_inserts_list)
+
+
 
 def generate_lote_venta_produccion_sql():
     """
-    Genera sentencias SQL para mockear lotes, producción y ventas, asegurando
-    que la merma (stock no vendido) por producto se encuentre entre un 10% y 30%.
+    Genera sentencias SQL para mockear lotes, producción y ventas, garantizando
+    una distribución realista de la merma y los vencimientos.
     
     Returns:
-        str: Un string con todas las sentencias INSERT y UPDATE necesarias.
+        str: Un string con todas las sentencias INSERT necesarias.
     """
-    print("Generando datos de lotes, producción y ventas con merma controlada...")
+    print("Generando datos de lotes, producción y ventas con lógica de vencimiento corregida...")
     product_ids = list(range(1, 11))
     client_ids = list(range(1, 41))
     operario_ids = list(range(3, 15))
@@ -98,75 +127,89 @@ def generate_lote_venta_produccion_sql():
     simulation_days = [start_date + timedelta(days=i) for i in range((end_date - start_date).days + 1)]
     work_days = [day for day in simulation_days if day.weekday() < 5]
 
-    # --- Estructuras de Datos para la Simulación ---
-    lotes_en_memoria = {}
+    # --- Estructuras de Datos ---
+    lotes_data = []
     produccion_total = {p_id: 0 for p_id in product_ids}
-    lote_id_counter = 1
-    sql_lote_inserts, sql_produccion_inserts, sql_venta_inserts, sql_lote_updates = [], [], [], []
+    sql_produccion_inserts, sql_venta_inserts, sql_lote_inserts = [], [], []
 
     # --- FASE 1: Simulación de toda la Producción ---
     print("Fase 1: Simulando producción de un año...")
     for day in work_days:
         num_nuevos_lotes = random.randint(10, 20)
         for _ in range(num_nuevos_lotes):
+            lote_id = len(lotes_data) + 1
             id_producto = random.choice(product_ids)
-            cantidad = random.randint(500, 2500)
+            cantidad_inicial = random.randint(500, 2500)
             fecha_ingreso = day.strftime('%Y-%m-%d')
             fecha_vto = (day + timedelta(days=random.randint(90, 180))).strftime('%Y-%m-%d')
             
-            # Guardar lote y registrar producción total
-            lotes_en_memoria[lote_id_counter] = {'id_producto': id_producto, 'cantidad': cantidad, 'fecha_ingreso': fecha_ingreso}
-            produccion_total[id_producto] += cantidad
+            lotes_data.append({
+                'id_lote': lote_id, 'id_producto': id_producto, 
+                'cantidad_inicial': cantidad_inicial, 'cantidad_final': cantidad_inicial,
+                'fecha_ingreso': fecha_ingreso, 'fecha_vto': fecha_vto
+            })
+            produccion_total[id_producto] += cantidad_inicial
             
-            sql_lote_inserts.append(f"INSERT INTO lote (id_lote, id_producto, cantidad, fecha_ingreso, fecha_vto) VALUES ({lote_id_counter}, {id_producto}, {cantidad}, '{fecha_ingreso}', '{fecha_vto}');")
             id_empleado_prod = random.choice(operario_ids)
             tiempo_horas = round(random.uniform(4.0, 8.0), 2)
-            sql_produccion_inserts.append(f"INSERT INTO produccion (id_lote, id_empleado, fecha_prod, cantidad_out, tiempo_horas) VALUES ({lote_id_counter}, {id_empleado_prod}, '{fecha_ingreso}', {cantidad}, {tiempo_horas});")
-            lote_id_counter += 1
+            sql_produccion_inserts.append(f"INSERT INTO produccion (id_lote, id_empleado, fecha_prod, cantidad_out, tiempo_horas) VALUES ({lote_id}, {id_empleado_prod}, '{fecha_ingreso}', {cantidad_inicial}, {tiempo_horas});")
             
-    # --- FASE 2: Simulación de Ventas Dirigida por Objetivo ---
-    print("Fase 2: Calculando y simulando ventas para alcanzar merma objetivo...")
-    # Se calcula el objetivo de ventas para cada producto para que la merma esté entre 10% y 30%.
-    ventas_objetivo = {
-        p_id: total * random.uniform(0.70, 0.90) for p_id, total in produccion_total.items()
-    }
+    # --- FASE 2: Cálculo del Estado Final del Inventario con Venta Aleatoria ---
+    print("Fase 2: Calculando stock final con consumo de lotes aleatorio...")
+    total_vendido_por_producto = {p_id: 0 for p_id in product_ids}
+    
+    for p_id, total_producido in produccion_total.items():
+        if total_producido == 0: continue
+        
+        merma_deseada = random.uniform(0.10, 0.30)
+        unidades_a_vender = total_producido * (1 - merma_deseada)
+        
+        # --- CAMBIO CLAVE: Se obtienen los lotes y se desordenan ---
+        indices_lotes_producto = [i for i, lote in enumerate(lotes_data) if lote['id_producto'] == p_id]
+        random.shuffle(indices_lotes_producto) # Esto simula un consumo de stock no perfecto (no FIFO)
+        
+        for i in indices_lotes_producto:
+            if unidades_a_vender <= 0: break
+            
+            cantidad_a_tomar = min(lotes_data[i]['cantidad_final'], unidades_a_vender)
+            
+            lotes_data[i]['cantidad_final'] -= cantidad_a_tomar
+            unidades_a_vender -= cantidad_a_tomar
+            total_vendido_por_producto[p_id] += cantidad_a_tomar
 
-    # Se distribuyen las ventas a lo largo del año.
+    # --- FASE 3: Generación de Registros de Venta ---
+    print("Fase 3: Generando registros de venta para coincidir con el stock vendido...")
+    ventas_pendientes = total_vendido_por_producto.copy()
+    
     for day in work_days:
-        num_ventas_dia = random.randint(25, 50)
-        for _ in range(num_ventas_dia):
-            # Se elige un producto que todavía tenga un objetivo de ventas pendiente.
-            productos_vendibles = [p_id for p_id, objetivo in ventas_objetivo.items() if objetivo > 0]
-            if not productos_vendibles:
-                continue
-            id_producto_venta = random.choice(productos_vendibles)
+        productos_con_ventas_pendientes = [p_id for p_id, cant in ventas_pendientes.items() if cant > 0]
+        if not productos_con_ventas_pendientes: break
+        
+        for _ in range(random.randint(30, 60)):
+            id_producto_venta = random.choice(productos_con_ventas_pendientes)
+            max_venta = min(50, ventas_pendientes[id_producto_venta])
+            if max_venta <= 0: continue
             
-            # Se vende una cantidad aleatoria, sin exceder el objetivo restante.
-            cantidad_venta = random.randint(5, int(min(100, ventas_objetivo[id_producto_venta])))
+            cantidad_venta = random.randint(1, int(max_venta))
             
-            # Se busca un lote con stock disponible usando lógica FIFO.
-            lotes_disponibles = sorted([(l_id, data) for l_id, data in lotes_en_memoria.items() if data['id_producto'] == id_producto_venta and data['cantidad'] >= cantidad_venta], key=lambda item: item[1]['fecha_ingreso'])
-            if not lotes_disponibles:
-                continue
-                
-            lote_a_usar_id, _ = lotes_disponibles[0]
             id_cliente = random.choice(client_ids)
             fecha_venta = day.strftime('%Y-%m-%d')
             
-            # Se registra la venta y se actualizan los contadores.
             sql_venta_inserts.append(f"INSERT INTO venta (id_cliente, id_producto, cantidad, fecha_venta) VALUES ({id_cliente}, {id_producto_venta}, {cantidad_venta}, '{fecha_venta}');")
-            lotes_en_memoria[lote_a_usar_id]['cantidad'] -= cantidad_venta
-            ventas_objetivo[id_producto_venta] -= cantidad_venta
+            ventas_pendientes[id_producto_venta] -= cantidad_venta
 
-    # --- FASE 3: Generación de Updates Finales ---
-    print("Fase 3: Generando sentencias UPDATE para el stock final.")
-    for lote_id, data in lotes_en_memoria.items():
-        sql_lote_updates.append(f"UPDATE lote SET cantidad = {data['cantidad']} WHERE id_lote = {lote_id};")
+    # --- FASE 4: Generación de INSERTS Finales para Lotes ---
+    print("Fase 4: Generando sentencias INSERT para lotes con su stock final.")
+    for lote in lotes_data:
+        sql_lote_inserts.append(f"INSERT INTO lote (id_lote, id_producto, cantidad, fecha_ingreso, fecha_vto) VALUES ({lote['id_lote']}, {lote['id_producto']}, {lote['cantidad_final']}, '{lote['fecha_ingreso']}', '{lote['fecha_vto']}');")
     
     print(f"\nProceso de simulación completado:")
-    print(f"  - Se generaron {len(sql_lote_inserts)} lotes y registros de producción.")
-    print(f"  - Se generaron {len(sql_venta_inserts)} ventas para cumplir el objetivo.")
-    return "\n".join(sql_lote_inserts + sql_produccion_inserts + sql_venta_inserts + sql_lote_updates)
+    print(f"  - Se generaron {len(sql_produccion_inserts)} registros de producción.")
+    print(f"  - Se generaron {len(sql_lote_inserts)} lotes.")
+    print(f"  - Se generaron {len(sql_venta_inserts)} ventas para cumplir el objetivo de merma.")
+    
+    return "\n".join(sql_produccion_inserts + sql_lote_inserts + sql_venta_inserts)
+
 
 
 
