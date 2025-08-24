@@ -17,7 +17,7 @@ El proyecto se divide en dos fases principales:
 ----------------------------------------------------------------------
 2. ESTRUCTURA DEL PROYECTO
 ----------------------------------------------------------------------
-
+```text
 / (Carpeta Raíz del Proyecto)
 |
 |-- administracion_db/
@@ -30,7 +30,7 @@ El proyecto se divide en dos fases principales:
 |-- gestion_produccion.db       # Archivo de Base de Datos. Generado por `create_db.py`, contiene todos los datos simulados.
 |
 `-- README.txt                  # Este archivo de documentación.
-
+```
 ----------------------------------------------------------------------
 3. GENERACIÓN DE LA BASE DE DATOS (El Proceso de Mockeo)
 ----------------------------------------------------------------------
