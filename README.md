@@ -1,18 +1,16 @@
-# PROYECTO DE SIMULACIÓN Y ANÁLISIS DE DATOS DE PRODUCCIÓN INDUSTRIA ALIMENTICIA
+# PROYECTO DE PRODUCCIÓN INDUSTRIA ALIMENTICIA
 
 ----------------------------------------------------------------------
 1. DESCRIPCIÓN GENERAL
 ----------------------------------------------------------------------
 
-Objetivo del Negocio:
-Este proyecto simula un año de operaciones de una empresa de producción para generar un conjunto de datos robusto y coherente. El objetivo final es analizar estos datos para extraer métricas de rendimiento clave (KPIs) que ayuden a responder preguntas de negocio sobre eficiencia operativa, gestión de inventario, recursos humanos y rendimiento de ventas.
+Este proyecto tiene un doble propósito:
 
-Flujo de Trabajo:
-El proyecto se divide en dos fases principales:
+1.  **Generación de Datos (Mockeo):** Simular un año de operaciones de una empresa de producción para generar un conjunto de datos robusto y coherente. El objetivo es poder analizar estos datos para extraer métricas de rendimiento clave (KPIs).
 
-1.  Generación de Datos (Mockeo): Un script de Python orquesta la creación de una base de datos SQLite y la puebla con datos simulados que siguen reglas de negocio predefinidas para garantizar su realismo y coherencia.
+2.  **Análisis de Datos:** Utilizar una Jupyter Notebook para explorar los datos generados, realizar análisis estadísticos y crear visualizaciones que permitan interpretar los resultados.
 
-2.  Análisis de Datos: Una Jupyter Notebook se utiliza para explorar los datos generados, realizar análisis estadísticos y crear visualizaciones que permitan interpretar los resultados y tomar decisiones informadas.
+3.  **Aplicación Web Interactiva:** Consumir los datos de los empleados generados para alimentar una aplicación web funcional, construida con una arquitectura moderna, que permite el registro y reconocimiento facial en tiempo real.
 
 ----------------------------------------------------------------------
 2. ESTRUCTURA DEL PROYECTO
@@ -20,16 +18,27 @@ El proyecto se divide en dos fases principales:
 ```text
 / (Carpeta Raíz del Proyecto)
 |
-|-- administracion_db/
-|   |-- crear_schema.sql        # Archivo SQL. Define la estructura de la base de datos (sentencias CREATE TABLE).
-|   |-- create_db.py            # Script Python. Orquestador principal que lee los archivos SQL, genera datos dinámicos y construye la base de datos.
-|   `-- inserts.sql             # Archivo SQL. Contiene los datos maestros iniciales (catálogo de productos, roles, lista de empleados, etc.).
+|-- data/
+|   └── gestion_produccion.db     # Base de Datos SQLite, generada por los scripts.
 |
-|-- analisis_datos.ipynb        # Jupyter Notebook. Contiene el código de análisis y las visualizaciones.
+|-- frontend/
+|   ├── src/                      # Código fuente de la aplicación React.
+|   ├── Dockerfile                # Define el entorno para el contenedor del frontend.
+|   └── package.json              # Dependencias del frontend.
 |
-|-- gestion_produccion.db       # Archivo de Base de Datos. Generado por `create_db.py`, contiene todos los datos simulados.
+|-- notebooks/
+|   └── analisis_datos.ipynb      # Jupyter Notebook con el análisis de datos.
 |
-`-- README.txt                  # Este archivo de documentación.
+|-- scripts/
+|   |-- crear_schema.sql          # Define la estructura de la base de datos.
+|   |-- create_db.py              # Orquestador que genera la base de datos.
+|   └── inserts.sql               # Contiene los datos maestros iniciales.
+|
+|-- Dockerfile                    # Define el entorno para el contenedor del backend.
+|
+|-- docker-compose.yml            # Orquesta la ejecución de la aplicación web.
+|
+└── README.md                     # Este archivo de documentación.
 ```
 ----------------------------------------------------------------------
 3. GENERACIÓN DE LA BASE DE DATOS (El Proceso de Mockeo)
@@ -37,84 +46,86 @@ El proyecto se divide en dos fases principales:
 
 3.a - Creación de la Base de Datos y Estructura
 
-El script create_db.py lee el archivo crear_schema.sql para definir la arquitectura de la base de datos. Se eligió SQLite por su simplicidad y portabilidad, ya que toda la base de datos reside en un único archivo (gestion_produccion.db). Esto facilita su consulta con herramientas externas como "DB Browser for SQLite" o extensiones de Visual Studio Code como "SQLite". El script primero elimina las tablas existentes (DROP TABLE) para garantizar una reconstrucción limpia en cada ejecución.
+El script `scripts/create_db.py` lee el archivo `scripts/crear_schema.sql` para definir la arquitectura de la base de datos. Se eligió SQLite por su simplicidad y portabilidad. El script primero elimina las tablas existentes (DROP TABLE) para garantizar una reconstrucción limpia en cada ejecución.
 
 3.b - El Proceso de Mockeo (Población de Datos)
 
-Tras crear la estructura e insertar los datos estáticos de inserts.sql, el script genera los datos transaccionales de un año. Este proceso es el núcleo de la simulación y se ha diseñado cuidadosamente para que los datos sean coherentes:
+Tras crear la estructura e insertar los datos estáticos de `scripts/inserts.sql`, el script genera los datos transaccionales de un año. Este proceso es el núcleo de la simulación y se ha diseñado cuidadosamente para que los datos sean coherentes:
 
-* generate_asistencia_sql(): Esta función simula los registros de asistencia. Para garantizar una distribución realista de la impuntualidad, se implementó una lógica de perfiles y planificación mensual:
+* `generate_asistencia_sql()`: Esta función simula los registros de asistencia. Para garantizar una distribución realista de la impuntualidad, se implementó una lógica de perfiles y planificación mensual:
     * Perfiles de Puntualidad: A cada empleado se le asigna un perfil (ej: "siempre puntual", "ocasional", "recurrente").
     * Planificación Mensual: El script itera mes a mes. Para cada empleado, y según su perfil, decide cuántas veces llegará tarde ese mes en particular. Luego, distribuye esos retrasos en días aleatorios dentro de ese mes.
-    * Este enfoque garantiza que cualquier mes analizado en la notebook contenga una muestra de datos variada y realista, evitando que meses enteros se queden sin incidentes.
 
-* generate_lote_venta_produccion_sql(): Esta función simula el ciclo de producción y ventas. Para garantizar que la merma (stock no vendido) se mantenga en un rango de negocio realista (10%-30%), se implementó una estrategia en cuatro fases:
-    1.  Fase 1 (Simulación de Producción): Se simula toda la producción de un año y se guarda en memoria.
-    2.  Fase 2 (Cálculo de Stock Final): Se calcula cuántas unidades de cada producto deben quedar al final para cumplir el objetivo de merma. Luego, se "consume" el stock de los lotes en memoria (de forma aleatoria para simular un manejo de inventario imperfecto) hasta alcanzar esa cifra.
-    3.  Fase 3 (Generación de Ventas): Sabiendo cuántas unidades se "vendieron" en la fase anterior, se generan los registros de venta correspondientes, distribuyéndolos a lo largo del año.
-    4.  Fase 4 (Inserción Final): Se insertan los registros en la tabla lote directamente con su cantidad final calculada, garantizando la coherencia de los datos sin necesidad de updates.
+* `generate_lote_venta_produccion_sql()`: Esta función simula el ciclo de producción y ventas. Para garantizar que la merma (stock no vendido) se mantenga en un rango de negocio realista (10%-30%), se implementó una estrategia en cuatro fases que primero simula toda la producción del año y luego genera ventas dirigidas para consumir el stock de manera coherente.
 
 ----------------------------------------------------------------------
 4. ANÁLISIS DE DATOS EN JUPYTER NOTEBOOK
 ----------------------------------------------------------------------
 
-¿Por qué usar Jupyter Notebooks en VS Code?
-
-Visual Studio Code ofrece un soporte nativo excelente para Jupyter Notebooks, combinando la interactividad de las celdas de una notebook con la potencia de un IDE profesional (control de versiones, depuración, etc.). Esto permite un flujo de trabajo integrado para el análisis exploratorio y la comunicación de resultados.
+Visual Studio Code ofrece un soporte nativo excelente para Jupyter Notebooks, combinando la interactividad de las celdas con la potencia de un IDE profesional.
 
 Librerías Utilizadas:
 
-* Pandas: Es la herramienta central para cargar los datos de la base de datos en DataFrames, que son tablas en memoria optimizadas para la limpieza, transformación, filtrado y agregación de datos.
-* NumPy: Proporciona el soporte para operaciones numéricas eficientes, siendo la base sobre la que se construye Pandas.
-* Matplotlib y Seaborn: Se usan para la visualización. Matplotlib ofrece control granular, mientras que Seaborn facilita la creación de gráficos estadísticos complejos y estéticamente agradables.
+* **Pandas:** Es la herramienta central para cargar los datos de la base de datos en DataFrames.
+* **NumPy:** Proporciona el soporte para operaciones numéricas eficientes.
+* **Matplotlib y Seaborn:** Se usan para la visualización de datos.
 
 Análisis Realizados en la Notebook:
 
-1.  Análisis de Desperdicios: Responde a la pregunta: "¿Qué productos y cuánto estamos perdiendo por vencimiento?".
-    * Por Valor Monetario: Identifica la pérdida financiera total por producto.
-    * Por Cantidad de Unidades (filtrado por mes): Identifica el volumen de desperdicio para un mes específico (ej: Junio).
-
-2.  Análisis de Asistencia: Responde a: "¿Cómo es la puntualidad de nuestro equipo?". Se analizan los registros de entrada de un mes específico para medir el retraso promedio y la frecuencia de llegadas tarde por empleado.
-
-3.  Análisis de Producción: Responde a: "¿Cuál es la eficiencia de nuestra producción y quiénes son nuestros operarios más productivos?".
-    * Eficiencia de Inventario (Merma): Mide el porcentaje de desperdicio promedio por producto.
-    * Valor de Producción por Operario: Clasifica a los operarios según el valor monetario total de los bienes que han producido.
-
-4.  Análisis de Ventas: Responde a: "¿Qué productos y tendencias debemos potenciar?".
-    * Ranking de Productos: Identifica los productos estrella, tanto por volumen de unidades vendidas como por los ingresos totales que generan.
-    * Tendencia de Ventas Mensuales: Visualiza la evolución de los ingresos a lo largo del año para identificar patrones estacionales.
+1.  **Análisis de Desperdicios:** Responde a la pregunta: "¿Qué productos y cuánto estamos perdiendo por vencimiento?".
+2.  **Análisis de Asistencia:** Responde a: "¿Cómo es la puntualidad de nuestro equipo?".
+3.  **Análisis de Producción:** Responde a: "¿Cuál es la eficiencia de nuestra producción y quiénes son nuestros operarios más productivos?".
+4.  **Análisis de Ventas:** Responde a: "¿Qué productos y tendencias debemos potenciar?".
 
 ----------------------------------------------------------------------
-5. CÓMO USAR ESTE PROYECTO EN VISUAL STUDIO CODE
+5. CÓMO EJECUTAR EL PROYECTO
 ----------------------------------------------------------------------
 
-Paso 1: Requisitos Previos
-* Tener Python 3 instalado en tu sistema.
-* Tener Visual Studio Code instalado.
-* Instalar la extensión oficial de Python de Microsoft en VS Code.
+### 5.1. Aplicación Web de Reconocimiento Facial (Método Principal)
 
-Paso 2: Configuración
-1.  Abre la carpeta del proyecto en Visual Studio Code.
-2.  Abre el explorador de extensiones (Ctrl + Shift + X).
-3.  Busca e instala la extensión Jupyter de Microsoft.
+Este método utiliza Docker para levantar la aplicación interactiva completa (frontend y backend).
 
-No es necesario realizar ninguna otra instalación manual, ya que la primera celda de la Jupyter Notebook (analisis_datos.ipynb) contiene los comandos pip install para descargar automáticamente todas las librerías necesarias.
+-   **Requisitos Previos:** Tener **Docker** y **Docker Compose** instalados.
+-   **Pasos:**
+    1.  Abre una terminal en la carpeta raíz del proyecto.
+    2.  Ejecuta el comando: `docker-compose up --build`
+    3.  Accede a la aplicación en tu navegador en: `http://localhost:3000`
+    4.  Para detener la aplicación, presiona `Ctrl + C` o ejecuta `docker-compose down`.
 
-Paso 3: Generar la Base de Datos
-1.  Abre una nueva terminal integrada en VS Code (Ctrl + Shift + Ñ).
-2.  Ejecuta el script de creación:
-    python administracion_db\create_db.py
+### 5.2. Simulación y Análisis de Datos (Uso Original)
 
-Este comando creará (o recreará) el archivo gestion_produccion.db en la carpeta raíz del proyecto.
+Este método permite ejecutar los scripts originales de forma manual, sin Docker.
 
-Paso 4: Realizar el Análisis
-1.  En el explorador de archivos de VS Code, haz clic en analisis_datos.ipynb.
-2.  VS Code abrirá la interfaz de Jupyter Notebook.
-3.  Ejecuta la primera celda para instalar las dependencias.
-4.  Ejecuta las celdas restantes en orden haciendo clic en el botón de "Play" (flecha) que aparece a la izquierda de cada una, o usando el atajo Shift + Enter.
+-   **Requisitos Previos:** Tener Python 3 y la extensión de Jupyter para VS Code instalados.
+-   **Paso 1: Generar la Base de Datos**
+    -   En una terminal, ejecuta: `python scripts/create_db.py`
+    -   Esto creará o recreará el archivo `data/gestion_produccion.db`.
+-   **Paso 2: Realizar el Análisis**
+    -   Abre el archivo `notebooks/analisis_datos.ipynb` en VS Code.
+    -   Ejecuta las celdas para ver el análisis de datos.
 
 ----------------------------------------------------------------------
 6. ARQUITECTURA DE DATOS
 ----------------------------------------------------------------------
+El siguiente diagrama entidad-relación ilustra la estructura de la base de datos generada:
+
 <img width="804" height="657" alt="image" src="https://github.com/user-attachments/assets/cd322a31-fec1-4421-9a55-08bcb30765c0" />
+
+----------------------------------------------------------------------
+7. ARQUITECTURA DE LA APLICACIÓN WEB
+----------------------------------------------------------------------
+
+La aplicación web se construye sobre una arquitectura de microservicios contenerizados:
+
+-   **Backend (API del Servidor):**
+    -   **Tecnología:** Python 3.10 con FastAPI.
+    -   **Responsabilidad:** Conectarse a la base de datos `gestion_produccion.db` y exponer una API para registrar y reconocer los rostros de los empleados.
+
+-   **Frontend (Interfaz de Usuario):**
+    -   **Tecnología:** React.js.
+    -   **Responsabilidad:** Proveer una interfaz de usuario avanzada con un sistema de pestañas para separar el modo de "Registro" del modo de "Reconocimiento en Tiempo Real".
+
+-   **Comunicación y Orquestación:**
+    -   **Docker Compose:** Orquesta los contenedores y crea una red virtual para que se comuniquen.
+    -   **Proxy de React:** La comunicación desde el navegador al backend se logra a través del proxy de desarrollo de React, configurado en `frontend/package.json` para redirigir las peticiones a `http://backend:8000`.
 
