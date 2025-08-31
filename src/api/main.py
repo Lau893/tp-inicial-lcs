@@ -2,8 +2,8 @@ from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.responses import JSONResponse
 import numpy as np
 
-import database
-import face_utils
+from . import database
+from . import face_utils
 
 app = FastAPI(
     title="API de Reconocimiento Facial de Empleados",
