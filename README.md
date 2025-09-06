@@ -95,10 +95,10 @@ tp-inicial-lcs/
 │   ├── schemas.py        # Pydantic schemas
 │   ├── security.py       # JWT y x-api-key
 │   └── rate_limit.py     # Rate limiting básico
-├── frontend/             # Frontend React (prototipo)
+├── admin/                # Sitio estático Admin (login, ABM, rostro, reportes)
+├── totem/                # Sitio estático Tótem (cámara, asistencia)
 ├── Dockerfile            # Imagen backend
 ├── docker-compose.yml    # Orquestación (backend+frontend)
 ├── requirements.txt      # Dependencias backend
 └── README.md             # Este documento
 ```
-

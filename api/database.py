@@ -1,88 +1,28 @@
-"""Capa de acceso a datos (Postgres, SQLAlchemy 2.x).
+"""Acceso a datos (Postgres) adaptado al esquema legacy.
 
-Define el ORM para las tablas `empleados` y `asistencias`, junto con
-helpers de sesión y operaciones de dominio usadas por los endpoints.
-
-Aspectos destacados:
-- `embedding` se almacena como JSONB.
-- `asistencias` tiene restricción de tipo ('ingreso', 'egreso') y una
-  unicidad lógica por (empleado_id, date(ts), tipo), verificada en la
-  capa de aplicación por `asistencia_exists_today`.
+Usa las tablas: rol, empleado, embedding, asistencia. Evita crear tablas.
 """
 
 import os
 from datetime import date
 from typing import Optional, List, Tuple
 
-from sqlalchemy import (
-    create_engine,
-    String,
-    Integer,
-    Date,
-    DateTime,
-    Float,
-    ForeignKey,
-    CheckConstraint,
-    func,
-    select,
-)
-from sqlalchemy.orm import declarative_base, Mapped, mapped_column, relationship, sessionmaker, Session
-from sqlalchemy.dialects.postgresql import JSONB, BIGINT
+from sqlalchemy import create_engine, text, func
+from sqlalchemy.orm import sessionmaker, Session
 
 
 DATABASE_URL = os.environ.get("DATABASE_URL") or os.environ.get("database_url") or "postgresql+psycopg://user:pass@localhost:5432/db"
 
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
-Base = declarative_base()
+Base = None  # no ORM models; trabajamos con SQL directo
 
 
-class Empleado(Base):
-    """Modelo de empleado.
-
-    - `dni` es único e indexado para búsquedas rápidas.
-    - `embedding` es un arreglo float (JSONB) calculado en el navegador.
-    """
-
-    __tablename__ = "empleados"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    dni: Mapped[str] = mapped_column(String, unique=True, nullable=False, index=True)
-    nombre: Mapped[str] = mapped_column(String, nullable=False)
-    apellido: Mapped[str] = mapped_column(String, nullable=False)
-    fecha_nac: Mapped[date] = mapped_column(Date, nullable=False)
-    embedding: Mapped[Optional[list]] = mapped_column(JSONB, nullable=True)
-
-    asistencias: Mapped[list["Asistencia"]] = relationship(back_populates="empleado")
-
-
-class Asistencia(Base):
-    """Modelo de asistencia.
-
-    - `tipo`: 'ingreso' o 'egreso'.
-    - `ts`: timestamp con zona horaria (server default `now()`).
-    - Unicidad lógica por día y tipo se valida en la aplicación.
-    """
-
-    __tablename__ = "asistencias"
-
-    id: Mapped[int] = mapped_column(BIGINT, primary_key=True, autoincrement=True)
-    empleado_id: Mapped[int] = mapped_column(ForeignKey("empleados.id", ondelete="CASCADE"), nullable=False, index=True)
-    ts: Mapped[Optional[str]] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    tipo: Mapped[str] = mapped_column(String(10), nullable=False)
-    distancia: Mapped[float] = mapped_column(Float, nullable=False)
-    origen: Mapped[str] = mapped_column(String, nullable=False)
-
-    empleado: Mapped[Empleado] = relationship(back_populates="asistencias")
-
-    __table_args__ = (
-        CheckConstraint("tipo in ('ingreso','egreso')", name="tipo_check"),
-    )
+## No declarative models; consultas con SQL directo al esquema legacy
 
 
 def init_models():
-    """Crea las tablas si no existen (usado en startup)."""
-    Base.metadata.create_all(bind=engine)
+    return
 
 
 # Helper de sesión
@@ -92,53 +32,102 @@ def get_session() -> Session:
 
 
 # Operaciones de dominio
-def create_employee(db: Session, dni: str, nombre: str, apellido: str, fecha_nac: date) -> int:
-    """Crea un empleado y retorna su ID."""
-    emp = Empleado(dni=dni, nombre=nombre, apellido=apellido, fecha_nac=fecha_nac)
-    db.add(emp)
+def _map_api_rol_to_db_name(rol: str) -> str:
+    return "Administrador" if rol == "admin" else "Operario"
+
+
+def _map_db_name_to_api_rol(nombre: Optional[str]) -> str:
+    return "admin" if (nombre or "").lower().startswith("admin") else "operario"
+
+
+def _resolve_id_rol(db: Session, rol_api: str) -> int:
+    nombre = _map_api_rol_to_db_name(rol_api)
+    row = db.execute(text("SELECT id_rol FROM rol WHERE LOWER(nombre)=LOWER(:n)"), {"n": nombre}).first()
+    if row:
+        return int(row[0])
+    row2 = db.execute(text("INSERT INTO rol (nombre) VALUES (:n) RETURNING id_rol"), {"n": nombre}).first()
     db.commit()
-    db.refresh(emp)
-    return emp.id
+    return int(row2[0])
 
 
-def get_employee_by_dni(db: Session, dni: str) -> Optional[Empleado]:
-    """Obtiene un empleado por DNI o None si no existe."""
-    return db.execute(select(Empleado).where(Empleado.dni == dni)).scalar_one_or_none()
+def create_employee(db: Session, dni: str, nombre: str, apellido: Optional[str], fecha_nac: Optional[date], rol: str = "operario") -> int:
+    id_rol = _resolve_id_rol(db, rol)
+    row = db.execute(text(
+        """
+        INSERT INTO empleado (nombre, apellido, documento, id_rol)
+        VALUES (:nombre, :apellido, :documento, :id_rol)
+        RETURNING id_empleado
+        """
+    ), {"nombre": nombre, "apellido": apellido or "", "documento": dni, "id_rol": id_rol}).first()
+    db.commit()
+    return int(row[0])
+
+
+def get_employee_by_dni(db: Session, dni: str):
+    row = db.execute(text(
+        """
+        SELECT e.id_empleado, e.documento, e.nombre, e.apellido, r.nombre as rol_nombre
+        FROM empleado e
+        LEFT JOIN rol r ON r.id_rol = e.id_rol
+        WHERE e.documento = :dni
+        """
+    ), {"dni": dni}).first()
+    if not row:
+        return None
+    emp_id = int(row[0])
+    emb_row = db.execute(text(
+        "SELECT embedding_data FROM embedding WHERE id_empleado=:id ORDER BY id_embedding DESC LIMIT 1"
+    ), {"id": emp_id}).first()
+    embedding = None
+    if emb_row and emb_row[0]:
+        try:
+            import json
+            embedding = json.loads(emb_row[0])
+        except Exception:
+            embedding = None
+    return {
+        "id": emp_id,
+        "dni": row[1],
+        "nombre": row[2] or "",
+        "apellido": row[3] or "",
+        "rol_nombre": row[4] or "",
+        "embedding": embedding,
+    }
 
 
 def set_employee_embedding_by_dni(db: Session, dni: str, embedding: List[float]) -> bool:
-    """Guarda/actualiza el embedding del empleado identificado por DNI."""
     emp = get_employee_by_dni(db, dni)
     if not emp:
         return False
-    emp.embedding = embedding
-    db.add(emp)
+    import json
+    db.execute(text("DELETE FROM embedding WHERE id_empleado=:id"), {"id": emp["id"]})
+    db.execute(text("INSERT INTO embedding (id_empleado, embedding_data) VALUES (:id,:data)"), {"id": emp["id"], "data": json.dumps(embedding)})
     db.commit()
     return True
 
 
 def get_gallery(db: Session) -> List[Tuple[int, List[float]]]:
-    """Devuelve la galería para el tótem: lista de (id, embedding) con embedding no nulo."""
-    rows = db.execute(select(Empleado.id, Empleado.embedding).where(Empleado.embedding.is_not(None))).all()
-    return [(r[0], r[1]) for r in rows]
+    rows = db.execute(text(
+        "SELECT e.id_empleado, em.embedding_data FROM empleado e JOIN embedding em ON em.id_empleado = e.id_empleado"
+    )).all()
+    out: List[Tuple[int, List[float]]] = []
+    import json
+    for r in rows:
+        try:
+            out.append((int(r[0]), json.loads(r[1])))
+        except Exception:
+            continue
+    return out
 
 
-def asistencia_exists_today(db: Session, empleado_id: int, tipo: str) -> bool:
-    """Verifica si ya existe asistencia hoy para (empleado_id, tipo)."""
-    q = db.execute(
-        select(Asistencia.id).where(
-            Asistencia.empleado_id == empleado_id,
-            Asistencia.tipo == tipo,
-            func.date(Asistencia.ts) == func.current_date(),
-        )
-    ).first()
+def asistencia_exists_today(db: Session, empleado_id: int, tipo_api: str) -> bool:
+    tipo_db = 'entrada' if tipo_api == 'ingreso' else 'salida'
+    q = db.execute(text("SELECT 1 FROM asistencia WHERE id_empleado=:id AND tipo=:t AND date(fecha)=current_date LIMIT 1"), {"id": empleado_id, "t": tipo_db}).first()
     return q is not None
 
 
-def create_asistencia(db: Session, empleado_id: int, tipo: str, distancia: float, origen: str) -> int:
-    """Crea un registro de asistencia y retorna su ID."""
-    a = Asistencia(empleado_id=empleado_id, tipo=tipo, distancia=distancia, origen=origen)
-    db.add(a)
+def create_asistencia(db: Session, empleado_id: int, tipo_api: str, distancia: float, origen: str) -> int:
+    tipo_db = 'entrada' if tipo_api == 'ingreso' else 'salida'
+    db.execute(text("INSERT INTO asistencia (id_empleado, fecha, tipo) VALUES (:id, now(), :t)"), {"id": empleado_id, "t": tipo_db})
     db.commit()
-    db.refresh(a)
-    return a.id
+    return empleado_id

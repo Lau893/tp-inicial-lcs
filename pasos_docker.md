@@ -24,6 +24,13 @@ Verificar
 - Admin: `http://localhost:5173`
 - Tótem: `http://localhost:5174`
 
+Inicializar Postgres (esquema + semillas)
+- Con la DB del compose corriendo (tabla legacy):
+  - En otra terminal (desde la raíz del repo):
+    - PowerShell: `$env:DATABASE_URL="postgresql://appuser:apppass@localhost:5432/appdb"; python tp-inicial-lcs/scripts/create_db.py`
+    - bash/zsh: `export DATABASE_URL=postgresql://appuser:apppass@localhost:5432/appdb; python tp-inicial-lcs/scripts/create_db.py`
+  - Esto aplica `scripts/pg_legacy_schema.sql` y luego `scripts/inserts.sql`.
+
 Parar servicios (bajar el stack)
 - `docker compose -f tp-inicial-lcs/docker-compose.dev.yml down`
 - Si querés borrar los datos de Postgres del volumen (reset total):
@@ -58,3 +65,16 @@ Consejos
 - Si cambiás `ALLOWED_ORIGINS` u otras variables, reconstruí el backend:
   - `docker compose -f tp-inicial-lcs/docker-compose.dev.yml up -d --build backend`
 - Si el puerto 5432 está ocupado, cambiá el mapeo en `docker-compose.dev.yml` (por ejemplo a `5433:5432`).
+
+Resetear completamente la base de datos (limpieza dura)
+- Bajá el stack y eliminá volúmenes (incluye datos de Postgres):
+  - `docker compose -f tp-inicial-lcs/docker-compose.dev.yml down -v --remove-orphans`
+- (Opcional) Limpiá redes/recursos huérfanos:
+  - `docker network prune -f`
+  - `docker volume prune -f`
+- Volvé a levantar y re‑inicializá el esquema/semillas:
+  - `docker compose -f tp-inicial-lcs/docker-compose.dev.yml up -d db`
+  - `# Inicializar esquema e inserts legacy`
+  - PowerShell: `$env:DATABASE_URL="postgresql://appuser:apppass@localhost:5432/appdb"; python tp-inicial-lcs/scripts/create_db.py`
+  - bash/zsh: `export DATABASE_URL=postgresql://appuser:apppass@localhost:5432/appdb; python tp-inicial-lcs/scripts/create_db.py`
+  - `docker compose -f tp-inicial-lcs/docker-compose.dev.yml up -d --build backend admin totem`

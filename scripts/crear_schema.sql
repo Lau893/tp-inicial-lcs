@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS rol (
 CREATE TABLE IF NOT EXISTS empleado (
   id_empleado INTEGER PRIMARY KEY,
   nombre TEXT,
+  apellido TEXT,
   documento TEXT,
   id_rol INTEGER REFERENCES rol(id_rol) -- Clave foránea que enlaza con la tabla 'rol'
 );
@@ -75,3 +76,5 @@ CREATE TABLE embedding (
     id_empleado INTEGER NOT NULL REFERENCES empleado(id_empleado),
     embedding_data TEXT NOT NULL
 );
+-- AVISO: Legacy (SQLite). No usar para inicializar Postgres del backend actual.
+-- Para el backend FastAPI + Postgres usar: scripts/postgres_init.sql

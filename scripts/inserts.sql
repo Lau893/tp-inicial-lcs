@@ -14,6 +14,7 @@ INSERT INTO producto (nombre, precio) VALUES ('Grisines con sesamo', 2.30);
 INSERT INTO rol (nombre) VALUES ('Encargado');
 INSERT INTO rol (nombre) VALUES ('Operario');
 INSERT INTO rol (nombre) VALUES ('Seguridad');
+INSERT INTO rol (nombre) VALUES ('Administrador');
 
 -- EMPLEADOS
 INSERT INTO empleado (nombre, documento, id_rol) VALUES ('Carlos Gomez', '28123456', 1);
@@ -32,6 +33,8 @@ INSERT INTO empleado (nombre, documento, id_rol) VALUES ('Matias Acosta', '41123
 INSERT INTO empleado (nombre, documento, id_rol) VALUES ('Camila Benitez', '42789012', 2);
 INSERT INTO empleado (nombre, documento, id_rol) VALUES ('Roberto Silva', '25456789', 3);
 INSERT INTO empleado (nombre, documento, id_rol) VALUES ('Florencia Ortiz', '26123456', 3);
+INSERT INTO empleado (nombre, documento, id_rol) VALUES ('Lionel Messi', '25456722', 4);
+INSERT INTO empleado (nombre, documento, id_rol) VALUES ('Ariel Ortega', '26123499', 4);
 
 -- CLIENTES (40 en total)
 INSERT INTO cliente (nombre, documento, direccion) VALUES ('Supermercado La Estrella', '30112233445', 'Av. Corrientes 1234');
@@ -74,3 +77,5 @@ INSERT INTO cliente (nombre, documento, direccion) VALUES ('El Punto Justo', '30
 INSERT INTO cliente (nombre, documento, direccion) VALUES ('La Despensa de la Suerte', '30889900115', 'Av. Honduras 6263');
 INSERT INTO cliente (nombre, documento, direccion) VALUES ('El Trebol de la Fortuna', '30990011226', 'Calle El Salvador 6465');
 INSERT INTO cliente (nombre, documento, direccion) VALUES ('La Ultima Parada', '30001122337', 'Av. Cabildo 6667');
+-- AVISO: Legacy (SQLite-like). No usar para el backend Postgres actual.
+-- Para semillas del backend usar scripts/seed.sql

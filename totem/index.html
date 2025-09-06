@@ -44,10 +44,11 @@
 
       <div class="card">
         <p>Simulador de asistencia (para validar backend):</p>
-        <label>ID Empleado</label>
-        <input id="empId" />
+        <label>DNI</label>
+        <input id="dniInput" placeholder="Ej: 123" />
         <button class="btn ingreso" id="btnIn">Ingreso</button>
         <button class="btn egreso" id="btnEg">Egreso</button>
+        <div class="muted" style="margin-top:6px">En desarrollo, este Tótem puede resolver DNI → ID si configurás un token admin en window.CONFIG.ADMIN_BEARER.</div>
         <div id="asisMsg"></div>
       </div>
     </main>
@@ -85,11 +86,22 @@
         } catch (e) { err($('galMsg'), e.message); }
       };
 
+      async function resolveIdByDni(dni){
+        // Resolver usando endpoint protegido por x-api-key (no requiere token admin)
+        const res = await fetch(`${API_BASE}/employees/resolve?dni=${encodeURIComponent(dni)}`, {
+          headers: { 'x-api-key': API_KEY }
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || res.statusText);
+        return data.id;
+      }
+
       async function enviarAsistencia(tipo) {
         $('asisMsg').textContent = '';
         try {
-          const id = parseInt($('empId').value, 10);
-          if (!id) throw new Error('ID inválido');
+          const dni = $('dniInput').value.trim();
+          if (!dni) throw new Error('DNI inválido');
+          const id = await resolveIdByDni(dni);
           const res = await fetch(`${API_BASE}/asistencia`, {
             method: 'POST', headers: { 'x-api-key': API_KEY, 'Content-Type':'application/json' },
             body: JSON.stringify({ id_empleado: id, tipo, distancia: 0.33, origen: 'totem-dev' })

@@ -11,7 +11,7 @@
       header{ display:flex; align-items:center; justify-content:space-between; padding:14px 20px; background:rgba(16,25,53,.8); position:sticky; top:0; backdrop-filter: blur(8px); border-bottom:1px solid #1f2750; }
       header .brand{ font-weight:700; letter-spacing:.3px; }
       header .env{ font-size:12px; color:var(--muted); }
-      main{ max-width:1000px; margin:24px auto; padding:0 16px; }
+      main{ max-width:1400px; margin:24px auto; padding:0 16px; }
       .panel{ background:linear-gradient(180deg,var(--panel) 0%,var(--panel2) 100%); border:1px solid #1f2750; border-radius:12px; padding:18px; box-shadow:0 10px 30px rgba(0,0,0,.25); }
       .grid{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
       .grid-1{ display:grid; grid-template-columns:1fr; gap:16px; }
@@ -68,6 +68,7 @@
           <button data-tab="crear" class="active">Crear Empleado</button>
           <button data-tab="consultar">Consultar</button>
           <button data-tab="rostro">Registrar Rostro</button>
+          <button data-tab="reportes">Reportes</button>
         </nav>
 
         <div id="tab-crear" class="panel">
@@ -84,6 +85,13 @@
               <input id="empApellido" />
               <label>Fecha Nac (YYYY-MM-DD)</label>
               <input id="empFecha" placeholder="1990-01-01" />
+            </div>
+            <div>
+              <label>Rol</label>
+              <select id="empRol" style="width:100%; padding:10px 12px; border-radius:10px; border:1px solid #253060; background:#0c1230; color:var(--txt);">
+                <option value="operario" selected>Operario</option>
+                <option value="admin">Administrador</option>
+              </select>
             </div>
           </div>
           <div style="margin-top:12px">
@@ -108,21 +116,29 @@
 
         <div id="tab-rostro" class="panel hidden">
           <h2>Registrar Rostro</h2>
-          <p class="muted">Pegá un embedding (lista de floats, separados por comas).</p>
+          <p class="muted">Capturá desde la cámara. El embedding se calcula en el navegador y se envía al backend.</p>
           <div class="grid">
             <div>
               <label>DNI</label>
               <input id="rostroDni" />
+              <div style="margin-top:8px">
+                <button id="camStartBtn">Iniciar cámara</button>
+                <button id="captureBtn">Capturar y Registrar</button>
+              </div>
+              <div id="rostroMsg" style="margin-top:8px"></div>
             </div>
             <div>
-              <label>Embedding</label>
-              <textarea id="rostroEmb" rows="5" placeholder="0.12,0.03,-0.44,..."></textarea>
+              <video id="cam" autoplay playsinline muted style="width:100%; max-width:360px; background:#0c1230; border:1px solid #253060; border-radius:10px"></video>
+              <canvas id="off" width="112" height="112" style="display:none"></canvas>
+              <p class="muted" style="margin-top:8px">Modelo: <code id="modelInfo">no configurado</code></p>
             </div>
           </div>
-          <div style="margin-top:12px">
-            <button id="btnRostro">Guardar Embedding</button>
-            <span id="rostroMsg"></span>
-          </div>
+        </div>
+
+        <div id="tab-reportes" class="panel hidden">
+          <h2>Reportes</h2>
+          <p class="muted">Visualización de métricas y análisis clave del negocio.</p>
+          <div id="reportesGrid" class="grid-1"></div>
         </div>
       </section>
     </main>
@@ -186,7 +202,7 @@
       $('btnCrear').onclick = async () => {
         clear($('crearMsg'));
         try{
-          const payload = { dni:$('empDni').value, nombre:$('empNombre').value, apellido:$('empApellido').value, fecha_nac:$('empFecha').value };
+          const payload = { dni:$('empDni').value, nombre:$('empNombre').value, apellido:$('empApellido').value, fecha_nac:$('empFecha').value, rol: $('empRol').value };
           const data = await api('/employees', { method:'POST', body: JSON.stringify(payload) });
           ok($('crearMsg'), `Creado id=${data.id}`);
         }catch(e){ err($('crearMsg'), e.message); }
@@ -201,18 +217,165 @@
         }catch(e){ $('buscarOut').textContent = e.message; }
       };
 
-      $('btnRostro').onclick = async () => {
+      // --- Cámara y Embedding en el navegador ---
+      let camStream = null;
+      let ortSession = null; // onnxruntime-web session
+
+      async function startCamera(){
+        try{
+          camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 }, audio:false });
+          $('cam').srcObject = camStream;
+          ok($('rostroMsg'), 'Cámara lista');
+        }catch(e){ err($('rostroMsg'), 'No se pudo acceder a la cámara: ' + e.message); }
+      }
+
+      async function ensureOrt(){
+        try{
+          if (!window.ort) throw new Error('onnxruntime-web no disponible');
+          if (ortSession) return ortSession;
+          const url = (window.CONFIG && window.CONFIG.MODEL_URL) || '';
+          if (!url) throw new Error('MODEL_URL no configurado');
+          $('modelInfo').textContent = url;
+          const head = await fetch(url, { method:'HEAD' });
+          if (!head.ok) throw new Error('Modelo no encontrado en '+url);
+          ort.env.wasm.numThreads = 1;
+          ortSession = await ort.InferenceSession.create(url, { executionProviders: ['wasm'] });
+          return ortSession;
+        }catch(e){
+          $('modelInfo').textContent = 'demo sin modelo (fallback)';
+          return null;
+        }
+      }
+
+      function preprocessToTensor(videoEl){
+        // Tomar un frame del video, redimensionar a 112x112, RGB, normalizar a [-1,1], NCHW
+        const cvs = $('off');
+        const ctx = cvs.getContext('2d');
+        // Tomamos un recorte centrado cuadrado
+        const vw = videoEl.videoWidth, vh = videoEl.videoHeight;
+        const side = Math.min(vw, vh);
+        const sx = Math.floor((vw - side)/2), sy = Math.floor((vh - side)/2);
+        ctx.drawImage(videoEl, sx, sy, side, side, 0, 0, 112, 112);
+        const img = ctx.getImageData(0, 0, 112, 112).data; // RGBA
+        const out = new Float32Array(1 * 3 * 112 * 112);
+        const H = 112, W = 112;
+        // NCHW: [1,3,112,112]
+        let idxR = 0, idxG = H*W, idxB = 2*H*W;
+        for (let i=0, p=0; i<img.length; i+=4, p++){
+          const r = img[i], g = img[i+1], b = img[i+2];
+          out[idxR++] = (r/127.5)-1.0;
+          out[idxG++] = (g/127.5)-1.0;
+          out[idxB++] = (b/127.5)-1.0;
+        }
+        return out;
+      }
+
+      function l2normalize(arr){
+        let sum=0; for (let i=0;i<arr.length;i++) sum += arr[i]*arr[i];
+        const norm = Math.sqrt(sum) || 1;
+        for (let i=0;i<arr.length;i++) arr[i] = arr[i]/norm;
+        return arr;
+      }
+
+      function fallbackEmbedding(videoEl){
+        const vw = videoEl.videoWidth, vh = videoEl.videoHeight;
+        const side = Math.min(vw, vh);
+        const sx = Math.floor((vw - side)/2), sy = Math.floor((vh - side)/2);
+        const tmp = document.createElement('canvas');
+        tmp.width = 16; tmp.height = 8;
+        const tctx = tmp.getContext('2d');
+        tctx.drawImage(videoEl, sx, sy, side, side, 0, 0, 16, 8);
+        const img = tctx.getImageData(0,0,16,8).data;
+        const vec = new Float32Array(128);
+        for (let i=0, p=0; i<img.length; i+=4, p++){
+          const r = img[i], g = img[i+1], b = img[i+2];
+          const gray = 0.299*r + 0.587*g + 0.114*b;
+          vec[p] = (gray/127.5)-1.0;
+        }
+        // L2
+        let s=0; for (let k=0;k<vec.length;k++) s += vec[k]*vec[k];
+        s = Math.sqrt(s) || 1; for (let k=0;k<vec.length;k++) vec[k] /= s;
+        return Array.from(vec);
+      }
+
+      async function captureAndRegister(){
         clear($('rostroMsg'));
         try{
-          const emb = $('rostroEmb').value.split(',').map(s=>s.trim()).filter(Boolean).map(Number);
-          if(!emb.length || emb.some(Number.isNaN)) throw new Error('Embedding inválido');
-          await api('/registrar_rostro', { method:'POST', body: JSON.stringify({ dni:$('rostroDni').value, embedding: emb }) });
-          ok($('rostroMsg'), 'Embedding guardado');
+          if (!camStream) await startCamera();
+          const session = await ensureOrt();
+          let emb;
+          if (session){
+            const input = preprocessToTensor($('cam'));
+            const feeds = {};
+            const inputName = session.inputNames ? session.inputNames[0] : session.inputNames?.[0];
+            const name = inputName || (session.inputNames && session.inputNames[0]) || Object.keys(session.inputNames || {})[0];
+            feeds[name] = new ort.Tensor('float32', input, [1,3,112,112]);
+            const outputMap = await session.run(feeds);
+            const first = outputMap[session.outputNames ? session.outputNames[0] : Object.keys(outputMap)[0]];
+            emb = Array.from(first.data);
+            l2normalize(emb);
+          } else {
+            emb = fallbackEmbedding($('cam'));
+            ok($('rostroMsg'), 'Usando modo demo sin modelo (embedding sintético)');
+          }
+          // Enviar al backend
+          const dni = $('rostroDni').value.trim();
+          if (!dni) throw new Error('Ingresá un DNI');
+          await api('/registrar_rostro', { method:'POST', body: JSON.stringify({ dni, embedding: emb }) });
+          ok($('rostroMsg'), 'Embedding registrado');
         }catch(e){ err($('rostroMsg'), e.message); }
-      };
+      }
+
+      $('camStartBtn').onclick = () => startCamera();
+      $('captureBtn').onclick = () => captureAndRegister();
+
+      // --- Reportes ---
+      const reportes = [
+        { file: 'puntualidad_por_operario.png', title: 'Puntualidad por Operario' },
+        { file: 'porcentaje_pedida_promedio_por_producto.png', title: 'Porcentaje Pedida Promedio por Producto' },
+        { file: 'ganancia_por_produccion_empleados.png', title: 'Ganancia por Producción (Empleados)' },
+        { file: 'evolucion_ingresos_mensuales.png', title: 'Evolución de Ingresos Mensuales' },
+        { file: 'Dinero_perdido_por_vencimiento_de_productos.png', title: 'Dinero Perdido por Vencimiento de Productos' },
+        { file: 'cantidad_unidades_desperdiciadas_por_producto.png', title: 'Cantidad de Unidades Desperdiciadas por Producto' },
+      ];
+
+      function renderReportes(){
+        const grid = $('reportesGrid');
+        grid.innerHTML = '';
+        const wrap = document.createElement('div');
+        wrap.style.display = 'grid';
+        // Tarjetas más grandes y responsivas a lo ancho
+        wrap.style.gridTemplateColumns = 'repeat(auto-fit, minmax(640px, 1fr))';
+        wrap.style.gap = '24px';
+        reportes.forEach(r => {
+          const card = document.createElement('div');
+          card.className = 'panel';
+          const h3 = document.createElement('h3');
+          h3.textContent = r.title;
+          h3.style.marginTop = '0';
+          const img = document.createElement('img');
+          img.src = '/assets/imagenes_datos/' + r.file;
+          img.alt = r.title;
+          img.style.width = '100%';
+          img.style.borderRadius = '8px';
+          img.style.border = '1px solid #253060';
+          img.loading = 'lazy';
+          card.appendChild(h3);
+          card.appendChild(img);
+          wrap.appendChild(card);
+        });
+        grid.appendChild(wrap);
+      }
+
+      // Render inicial
+      renderReportes();
 
       render();
     </script>
-    <script>window.CONFIG = { API_BASE: 'http://localhost:8000' };</script>
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+    <script>
+      // Por defecto, intentamos cargar un modelo local servido en /model/face_embedder.onnx
+      window.CONFIG = { API_BASE: 'http://localhost:8000', MODEL_URL: '/model/face_embedder.onnx' };
+    </script>
   </body>
   </html>

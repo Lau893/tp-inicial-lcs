@@ -28,8 +28,9 @@ class EmployeeCreate(BaseModel):
     """Payload para crear un empleado."""
     dni: str
     nombre: str
-    apellido: str
-    fecha_nac: date
+    apellido: Optional[str] = ""
+    fecha_nac: Optional[date] = None
+    rol: Literal["admin", "operario"] = "operario"
 
 
 class EmployeeOut(BaseModel):
@@ -37,8 +38,9 @@ class EmployeeOut(BaseModel):
     id: int
     dni: str
     nombre: str
-    apellido: str
-    fecha_nac: date
+    apellido: Optional[str] = ""
+    fecha_nac: Optional[date] = None
+    rol: Literal["admin", "operario"]
     embedding: Optional[List[float]] = None
 
 
