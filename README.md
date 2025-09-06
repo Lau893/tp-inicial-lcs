@@ -1,131 +1,104 @@
-# PROYECTO DE PRODUCCIÓN INDUSTRIA ALIMENTICIA
+Sistema de Control de Asistencia con Reconocimiento Facial (Web + Render)
 
-----------------------------------------------------------------------
-1. DESCRIPCIÓN GENERAL
-----------------------------------------------------------------------
+Este proyecto implementa un sistema de asistencia donde todo el cómputo de visión sucede en el navegador. El backend solo valida, autentica y persiste en Postgres (Render/Neon/Supabase). El despliegue objetivo son dos sitios estáticos (Admin y Tótem) y un servicio FastAPI en Render.
 
-Este proyecto tiene un doble propósito:
+-----------------------------------------------------------------------
+1. Arquitectura
+-----------------------------------------------------------------------
+- Frontend Admin (sitio estático):
+  - Login básico (DNI/Password), dashboard, ABM de empleados por DNI, registrar rostro capturando cámara y calculando embedding en el navegador.
+  - Env vars: VITE_API_BASE (URL del backend), usa JWT admin.
+- Frontend Tótem (sitio estático):
+  - Fullscreen, cámara activa y botones Ingreso/Egreso. Matching local contra una galería descargada del backend. Envía solo eventos de asistencia con x-api-key.
+  - Env vars: VITE_API_BASE, VITE_TOTEM_API_KEY.
+- Backend (FastAPI):
+  - Endpoints mínimos de login, empleados, registrar rostro, asistencia y healthz. Sin lógica de visión.
+  - Base de datos Postgres. CORS restringido a Admin y Tótem.
 
-1.  **Generación de Datos (Mockeo):** Simular un año de operaciones de una empresa de producción para generar un conjunto de datos robusto y coherente. El objetivo es poder analizar estos datos para extraer métricas de rendimiento clave (KPIs).
+-----------------------------------------------------------------------
+2. Backend: API y Contratos
+-----------------------------------------------------------------------
+- POST /login (admin): recibe { dni, password } y devuelve { token, role: 'admin' }.
+- POST /employees (admin): crea empleado { dni, nombre, apellido, fecha_nac } → { id }.
+- GET /employees?dni=123 (admin): devuelve { id, dni, nombre, apellido, fecha_nac, embedding }.
+- POST /registrar_rostro (admin): { dni, embedding:number[] } → { ok: true }.
+- GET /employees/gallery (tótem): devuelve [{ id, embedding }] (sin datos civiles). Header: x-api-key.
+- POST /asistencia (tótem): { id_empleado, tipo:'ingreso'|'egreso', distancia, origen } → { ok, id }. Header: x-api-key. Rate limit básico y unicidad por empleado, día y tipo.
+- GET /healthz: { ok: true }.
 
-2.  **Análisis de Datos:** Utilizar una Jupyter Notebook para explorar los datos generados, realizar análisis estadísticos y crear visualizaciones que permitan interpretar los resultados.
+Esquema Postgres:
+- empleados(id serial pk, dni text unique, nombre, apellido, fecha_nac date, embedding jsonb)
+- asistencias(id bigserial pk, empleado_id fk, ts timestamptz default now, tipo check('ingreso','egreso'), distancia real, origen text, unique(empleado_id, date(ts), tipo))
 
-3.  **Aplicación Web Interactiva:** Consumir los datos de los empleados generados para alimentar una aplicación web funcional, construida con una arquitectura moderna, que permite el registro y reconocimiento facial en tiempo real.
+Implementación en: api/main.py, api/database.py, api/schemas.py, api/security.py.
 
-----------------------------------------------------------------------
-2. ESTRUCTURA DEL PROYECTO
-----------------------------------------------------------------------
-```text
-/ (Carpeta Raíz del Proyecto)
-|
-|-- data/
-|   └── gestion_produccion.db     # Base de Datos SQLite, generada por los scripts.
-|
-|-- frontend/
-|   ├── src/                      # Código fuente de la aplicación React.
-|   ├── Dockerfile                # Define el entorno para el contenedor del frontend.
-|   └── package.json              # Dependencias del frontend.
-|
-|-- notebooks/
-|   └── analisis_datos.ipynb      # Jupyter Notebook con el análisis de datos.
-|
-|-- scripts/
-|   |-- crear_schema.sql          # Define la estructura de la base de datos.
-|   |-- create_db.py              # Orquestador que genera la base de datos.
-|   └── inserts.sql               # Contiene los datos maestros iniciales.
-|
-|-- Dockerfile                    # Define el entorno para el contenedor del backend.
-|
-|-- docker-compose.yml            # Orquesta la ejecución de la aplicación web.
-|
-└── README.md                     # Este archivo de documentación.
+-----------------------------------------------------------------------
+3. Embeddings en el Navegador (referencia)
+-----------------------------------------------------------------------
+- Modelo: MobileFaceNet/SFace (ONNX) u otro equivalente.
+- Preproceso: recorte de rostro a 112x112 RGB, normalización (x/127.5 - 1.0).
+- Salida: normalización L2 del embedding.
+- Métrica: coseno. Umbral inicial 0.35–0.40. Ventana 5 frames, aceptar si ≥3 cumplen. Intervalo 500–800 ms por frame.
+- Si no hay match: mostrar “Desconocido” y no enviar asistencia.
+
+-----------------------------------------------------------------------
+4. Variables de Entorno Backend
+-----------------------------------------------------------------------
+- DATABASE_URL (o database_url): cadena Postgres postgresql+psycopg://user:pass@host:port/db
+- JWT_SECRET (o jwt_secret): secreto HS256 para JWT admin.
+- ADMIN_DNI / ADMIN_PASSWORD (o minúsculas): credenciales admin.
+- TOTEM_API_KEY (o totem_api_key): key para el tótem.
+- ALLOWED_ORIGINS (o allowed_origins): lista separada por comas con URLs de Admin y Tótem.
+
+-----------------------------------------------------------------------
+5. Ejecución Local
+-----------------------------------------------------------------------
+Opción A — Sin Docker (rápida):
+- pip install -r requirements.txt
+- Exportar variables (ver sección 4)
+- uvicorn api.main:app --reload --port 8000
+- Swagger: http://localhost:8000/docs
+
+Opción B — Docker Compose:
+- docker compose up --build
+Notas:
+- El compose no incluye Postgres; usá un DATABASE_URL a un Postgres gestionado.
+- Para pasar variables al contenedor, añadí environment al servicio o usá --env-file.
+
+-----------------------------------------------------------------------
+6. Despliegue en Render
+-----------------------------------------------------------------------
+- Web Service (Python):
+  - Build: pip install -r requirements.txt
+  - Start: gunicorn -k uvicorn.workers.UvicornWorker -w 1 api.main:app
+  - Env: DATABASE_URL, JWT_SECRET, ADMIN_DNI, ADMIN_PASSWORD, TOTEM_API_KEY, ALLOWED_ORIGINS
+- Static Sites:
+  - Admin: setear VITE_API_BASE al backend.
+  - Tótem: setear VITE_API_BASE y VITE_TOTEM_API_KEY.
+
+-----------------------------------------------------------------------
+7. Migración de SQLite a Postgres (si aplica)
+-----------------------------------------------------------------------
+- Exportar tablas a CSV desde data/gestion_produccion.db.
+- Importar con psql COPY o usar pgloader.
+- Convertir embeddings a JSONB al importar.
+- Apuntar el backend a DATABASE_URL y verificar índices/constraints.
+
+-----------------------------------------------------------------------
+8. Estructura del Repositorio (resumen)
+-----------------------------------------------------------------------
 ```
-----------------------------------------------------------------------
-3. GENERACIÓN DE LA BASE DE DATOS (El Proceso de Mockeo)
-----------------------------------------------------------------------
-
-3.a - Creación de la Base de Datos y Estructura
-
-El script `scripts/create_db.py` lee el archivo `scripts/crear_schema.sql` para definir la arquitectura de la base de datos. Se eligió SQLite por su simplicidad y portabilidad. El script primero elimina las tablas existentes (DROP TABLE) para garantizar una reconstrucción limpia en cada ejecución.
-
-3.b - El Proceso de Mockeo (Población de Datos)
-
-Tras crear la estructura e insertar los datos estáticos de `scripts/inserts.sql`, el script genera los datos transaccionales de un año. Este proceso es el núcleo de la simulación y se ha diseñado cuidadosamente para que los datos sean coherentes:
-
-* `generate_asistencia_sql()`: Esta función simula los registros de asistencia. Para garantizar una distribución realista de la impuntualidad, se implementó una lógica de perfiles y planificación mensual:
-    * Perfiles de Puntualidad: A cada empleado se le asigna un perfil (ej: "siempre puntual", "ocasional", "recurrente").
-    * Planificación Mensual: El script itera mes a mes. Para cada empleado, y según su perfil, decide cuántas veces llegará tarde ese mes en particular. Luego, distribuye esos retrasos en días aleatorios dentro de ese mes.
-
-* `generate_lote_venta_produccion_sql()`: Esta función simula el ciclo de producción y ventas. Para garantizar que la merma (stock no vendido) se mantenga en un rango de negocio realista (10%-30%), se implementó una estrategia en cuatro fases que primero simula toda la producción del año y luego genera ventas dirigidas para consumir el stock de manera coherente.
-
-----------------------------------------------------------------------
-4. ANÁLISIS DE DATOS EN JUPYTER NOTEBOOK
-----------------------------------------------------------------------
-
-Visual Studio Code ofrece un soporte nativo excelente para Jupyter Notebooks, combinando la interactividad de las celdas con la potencia de un IDE profesional.
-
-Librerías Utilizadas:
-
-* **Pandas:** Es la herramienta central para cargar los datos de la base de datos en DataFrames.
-* **NumPy:** Proporciona el soporte para operaciones numéricas eficientes.
-* **Matplotlib y Seaborn:** Se usan para la visualización de datos.
-
-Análisis Realizados en la Notebook:
-
-1.  **Análisis de Desperdicios:** Responde a la pregunta: "¿Qué productos y cuánto estamos perdiendo por vencimiento?".
-2.  **Análisis de Asistencia:** Responde a: "¿Cómo es la puntualidad de nuestro equipo?".
-3.  **Análisis de Producción:** Responde a: "¿Cuál es la eficiencia de nuestra producción y quiénes son nuestros operarios más productivos?".
-4.  **Análisis de Ventas:** Responde a: "¿Qué productos y tendencias debemos potenciar?".
-
-----------------------------------------------------------------------
-5. CÓMO EJECUTAR EL PROYECTO
-----------------------------------------------------------------------
-
-### 5.1. Aplicación Web de Reconocimiento Facial (Método Principal)
-
-Este método utiliza Docker para levantar la aplicación interactiva completa (frontend y backend).
-
--   **Requisitos Previos:** Tener **Docker** y **Docker Compose** instalados.
--   **Pasos:**
-    1.  Abre una terminal en la carpeta raíz del proyecto.
-    2.  Ejecuta el comando: `docker-compose up --build`
-    3.  Accede a la aplicación en tu navegador en: `http://localhost:3000`
-    4.  Para detener la aplicación, presiona `Ctrl + C` o ejecuta `docker-compose down`.
-
-### 5.2. Simulación y Análisis de Datos (Uso Original)
-
-Este método permite ejecutar los scripts originales de forma manual, sin Docker.
-
--   **Requisitos Previos:** Tener Python 3 y la extensión de Jupyter para VS Code instalados.
--   **Paso 1: Generar la Base de Datos**
-    -   En una terminal, ejecuta: `python scripts/create_db.py`
-    -   Esto creará o recreará el archivo `data/gestion_produccion.db`.
--   **Paso 2: Realizar el Análisis**
-    -   Abre el archivo `notebooks/analisis_datos.ipynb` en VS Code.
-    -   Ejecuta las celdas para ver el análisis de datos.
-
-----------------------------------------------------------------------
-6. ARQUITECTURA DE DATOS
-----------------------------------------------------------------------
-El siguiente diagrama entidad-relación ilustra la estructura de la base de datos generada:
-
-<img width="804" height="657" alt="image" src="https://github.com/user-attachments/assets/cd322a31-fec1-4421-9a55-08bcb30765c0" />
-
-----------------------------------------------------------------------
-7. ARQUITECTURA DE LA APLICACIÓN WEB
-----------------------------------------------------------------------
-
-La aplicación web se construye sobre una arquitectura de microservicios contenerizados:
-
--   **Backend (API del Servidor):**
-    -   **Tecnología:** Python 3.10 con FastAPI.
-    -   **Responsabilidad:** Conectarse a la base de datos `gestion_produccion.db` y exponer una API para registrar y reconocer los rostros de los empleados.
-
--   **Frontend (Interfaz de Usuario):**
-    -   **Tecnología:** React.js.
-    -   **Responsabilidad:** Proveer una interfaz de usuario avanzada con un sistema de pestañas para separar el modo de "Registro" del modo de "Reconocimiento en Tiempo Real".
-
--   **Comunicación y Orquestación:**
-    -   **Docker Compose:** Orquesta los contenedores y crea una red virtual para que se comuniquen.
-    -   **Proxy de React:** La comunicación desde el navegador al backend se logra a través del proxy de desarrollo de React, configurado en `frontend/package.json` para redirigir las peticiones a `http://backend:8000`.
+tp-inicial-lcs/
+├── api/                  # Backend FastAPI (sin visión)
+│   ├── main.py           # Endpoints y CORS
+│   ├── database.py       # SQLAlchemy, modelos y helpers
+│   ├── schemas.py        # Pydantic schemas
+│   ├── security.py       # JWT y x-api-key
+│   └── rate_limit.py     # Rate limiting básico
+├── frontend/             # Frontend React (prototipo)
+├── Dockerfile            # Imagen backend
+├── docker-compose.yml    # Orquestación (backend+frontend)
+├── requirements.txt      # Dependencias backend
+└── README.md             # Este documento
+```
 

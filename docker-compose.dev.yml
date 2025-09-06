@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: tpilcs-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-appuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-apppass}
+      POSTGRES_DB: ${POSTGRES_DB:-appdb}
+    ports:
+      - "5432:5432"
+    healthcheck:
+      # Especificamos DB explícitamente para evitar error "database \"$POSTGRES_USER\" does not exist"
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tpilcs-backend
+    environment:
+      # apunte al servicio db del compose
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-appuser}:${POSTGRES_PASSWORD:-apppass}@db:5432/${POSTGRES_DB:-appdb}
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
+      ADMIN_DNI: ${ADMIN_DNI:-12345678}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-adminpass}
+      TOTEM_API_KEY: ${TOTEM_API_KEY:-dev-totem-key}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173,http://localhost:5174}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  
+
+  admin:
+    build:
+      context: ./admin
+      dockerfile: Dockerfile
+    container_name: tpilcs-admin
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+
+  totem:
+    build:
+      context: ./totem
+      dockerfile: Dockerfile
+    container_name: tpilcs-totem
+    ports:
+      - "5174:80"
+    depends_on:
+      - backend
+
+volumes:
+  db_data:

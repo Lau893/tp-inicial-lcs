@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tótem - Asistencia Facial</title>
+    <style>
+      body { margin:0; font-family: system-ui, sans-serif; background:#111; color:#eee; }
+      header { padding:12px 16px; background:#000; position:sticky; top:0; }
+      main { padding:16px; }
+      .btn { padding: 10px 14px; margin-right: 8px; border: 0; border-radius: 6px; cursor:pointer; }
+      .btn.ingreso { background:#0a7; color:#fff; }
+      .btn.egreso { background:#c50; color:#fff; }
+      .card { background:#1b1b1b; border:1px solid #333; border-radius:8px; padding:16px; margin:16px 0; }
+      input { padding:8px; width: 160px; }
+      .ok { color:#0a7; }
+      .err { color:#f55; }
+      code { background:#222; padding:2px 4px; border-radius:4px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <strong>Tótem</strong>
+      <span style="margin-left:12px; font-size:12px; color:#aaa">Backend: <code id="apiBase"></code></span>
+    </header>
+    <main>
+      <div class="card">
+        <h3>Cámara</h3>
+        <div style="display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap">
+          <video id="cam" autoplay playsinline muted style="width:480px; max-width:100%; background:#000; border-radius:8px; border:1px solid #333"></video>
+          <div>
+            <button class="btn" id="btnCam">Iniciar cámara</button>
+            <div id="camMsg" style="margin-top:8px"></div>
+            <p class="muted">La cámara se usa localmente en el navegador. No se envían imágenes al backend.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <button id="btnGaleria">Descargar galería</button>
+        <span id="galInfo" class="muted"></span>
+        <div id="galMsg"></div>
+      </div>
+
+      <div class="card">
+        <p>Simulador de asistencia (para validar backend):</p>
+        <label>ID Empleado</label>
+        <input id="empId" />
+        <button class="btn ingreso" id="btnIn">Ingreso</button>
+        <button class="btn egreso" id="btnEg">Egreso</button>
+        <div id="asisMsg"></div>
+      </div>
+    </main>
+
+    <script>
+      const API_BASE = (window.CONFIG && window.CONFIG.API_BASE) || 'http://localhost:8000';
+      const API_KEY = (window.CONFIG && window.CONFIG.TOTEM_API_KEY) || 'dev-totem-key';
+      document.getElementById('apiBase').textContent = API_BASE;
+
+      const $ = (id) => document.getElementById(id);
+      const ok = (el, t) => { el.className='ok'; el.textContent=t; };
+      const err = (el, t) => { el.className='err'; el.textContent=t; };
+
+      let gallery = [];
+
+      async function startCamera(){
+        try{
+          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+          $('cam').srcObject = stream;
+          ok($('camMsg'), 'Cámara lista');
+        }catch(e){ err($('camMsg'), 'No se pudo acceder a la cámara: ' + e.message); }
+      }
+
+      $('btnGaleria').onclick = async () => {
+        $('galMsg').textContent = '';
+        try {
+          const res = await fetch(`${API_BASE}/employees/gallery`, {
+            headers: { 'x-api-key': API_KEY }
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || res.statusText);
+          gallery = data;
+          $('galInfo').textContent = `Registros: ${gallery.length}`;
+          ok($('galMsg'), 'Galería descargada');
+        } catch (e) { err($('galMsg'), e.message); }
+      };
+
+      async function enviarAsistencia(tipo) {
+        $('asisMsg').textContent = '';
+        try {
+          const id = parseInt($('empId').value, 10);
+          if (!id) throw new Error('ID inválido');
+          const res = await fetch(`${API_BASE}/asistencia`, {
+            method: 'POST', headers: { 'x-api-key': API_KEY, 'Content-Type':'application/json' },
+            body: JSON.stringify({ id_empleado: id, tipo, distancia: 0.33, origen: 'totem-dev' })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || res.statusText);
+          ok($('asisMsg'), `${tipo} OK, id=${data.id}`);
+        } catch (e) { err($('asisMsg'), e.message); }
+      }
+
+      $('btnIn').onclick = () => enviarAsistencia('ingreso');
+      $('btnEg').onclick = () => enviarAsistencia('egreso');
+
+      $('btnCam').onclick = () => startCamera();
+      // Intentar iniciar de una si el navegador lo permite
+      if (navigator.mediaDevices?.getUserMedia) {
+        startCamera();
+      }
+    </script>
+    <script>window.CONFIG = { API_BASE: 'http://localhost:8000', TOTEM_API_KEY: 'dev-totem-key' };</script>
+  </body>
+  </html>

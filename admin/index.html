@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin - Asistencia Facial</title>
+    <style>
+      :root{ --bg:#0b1020; --panel:#101935; --panel2:#0f1430; --txt:#e8ebff; --muted:#9aa4c6; --pri:#4c7dff; --ok:#17b26a; --err:#f04438; }
+      *{box-sizing:border-box}
+      body{ margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background:linear-gradient(180deg,#0b1020 0%,#0a0f24 100%); color:var(--txt); }
+      header{ display:flex; align-items:center; justify-content:space-between; padding:14px 20px; background:rgba(16,25,53,.8); position:sticky; top:0; backdrop-filter: blur(8px); border-bottom:1px solid #1f2750; }
+      header .brand{ font-weight:700; letter-spacing:.3px; }
+      header .env{ font-size:12px; color:var(--muted); }
+      main{ max-width:1000px; margin:24px auto; padding:0 16px; }
+      .panel{ background:linear-gradient(180deg,var(--panel) 0%,var(--panel2) 100%); border:1px solid #1f2750; border-radius:12px; padding:18px; box-shadow:0 10px 30px rgba(0,0,0,.25); }
+      .grid{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+      .grid-1{ display:grid; grid-template-columns:1fr; gap:16px; }
+      h1{ font-size:22px; margin:0 0 8px; }
+      h2{ font-size:18px; margin:0 0 12px; }
+      label{ font-size:12px; color:var(--muted); display:block; margin:10px 0 4px; }
+      input, textarea{ width:100%; padding:10px 12px; border-radius:10px; border:1px solid #253060; background:#0c1230; color:var(--txt); outline:none; }
+      textarea{ min-height:110px; }
+      button{ background:var(--pri); color:#fff; border:0; padding:10px 14px; border-radius:10px; cursor:pointer; transition:.2s; }
+      button:hover{ filter:brightness(1.05) }
+      .muted{ color:var(--muted); font-size:12px }
+      .ok{ color:var(--ok) }
+      .err{ color:var(--err) }
+      .toolbar{ display:flex; gap:8px; align-items:center }
+      .hidden{ display:none !important }
+      nav.tabs{ display:flex; gap:8px; margin:0 0 16px }
+      nav.tabs button{ background:#0f1533; border:1px solid #273168 }
+      nav.tabs button.active{ background:#223070 }
+      pre{ white-space:pre-wrap; background:#0c1230; border:1px solid #253060; padding:10px; border-radius:10px }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="brand">Admin · Asistencia Facial</div>
+      <div class="toolbar">
+        <span class="env">Backend: <code id="apiBase"></code></span>
+        <button id="logoutBtn" class="hidden" title="Cerrar sesión">Salir</button>
+      </div>
+    </header>
+    <main>
+      <!-- Vista: Login -->
+      <section id="viewLogin" class="panel">
+        <h1>Iniciar sesión</h1>
+        <p class="muted">Accedé con las credenciales de administrador.</p>
+        <div class="grid">
+          <div>
+            <label>DNI</label>
+            <input id="dni" placeholder="12345678" />
+          </div>
+          <div>
+            <label>Password</label>
+            <input id="pwd" type="password" placeholder="adminpass" />
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <button id="btnLogin">Ingresar</button>
+          <span id="loginMsg"></span>
+        </div>
+      </section>
+
+      <!-- Vista: App protegida -->
+      <section id="viewApp" class="hidden">
+        <nav class="tabs">
+          <button data-tab="crear" class="active">Crear Empleado</button>
+          <button data-tab="consultar">Consultar</button>
+          <button data-tab="rostro">Registrar Rostro</button>
+        </nav>
+
+        <div id="tab-crear" class="panel">
+          <h2>Crear Empleado</h2>
+          <div class="grid">
+            <div>
+              <label>DNI</label>
+              <input id="empDni" />
+              <label>Nombre</label>
+              <input id="empNombre" />
+            </div>
+            <div>
+              <label>Apellido</label>
+              <input id="empApellido" />
+              <label>Fecha Nac (YYYY-MM-DD)</label>
+              <input id="empFecha" placeholder="1990-01-01" />
+            </div>
+          </div>
+          <div style="margin-top:12px">
+            <button id="btnCrear">Crear</button>
+            <span id="crearMsg"></span>
+          </div>
+        </div>
+
+        <div id="tab-consultar" class="panel hidden">
+          <h2>Consultar Empleado</h2>
+          <div class="grid-1">
+            <div>
+              <label>DNI</label>
+              <input id="buscarDni" />
+            </div>
+          </div>
+          <div style="margin-top:12px">
+            <button id="btnBuscar">Buscar</button>
+          </div>
+          <pre id="buscarOut" style="margin-top:12px"></pre>
+        </div>
+
+        <div id="tab-rostro" class="panel hidden">
+          <h2>Registrar Rostro</h2>
+          <p class="muted">Pegá un embedding (lista de floats, separados por comas).</p>
+          <div class="grid">
+            <div>
+              <label>DNI</label>
+              <input id="rostroDni" />
+            </div>
+            <div>
+              <label>Embedding</label>
+              <textarea id="rostroEmb" rows="5" placeholder="0.12,0.03,-0.44,..."></textarea>
+            </div>
+          </div>
+          <div style="margin-top:12px">
+            <button id="btnRostro">Guardar Embedding</button>
+            <span id="rostroMsg"></span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const API_BASE = (window.CONFIG && window.CONFIG.API_BASE) || 'http://localhost:8000';
+      const $ = (id) => document.getElementById(id);
+      const by = (sel) => document.querySelector(sel);
+      const all = (sel) => Array.from(document.querySelectorAll(sel));
+      const ok = (el, t) => { el.className='ok'; el.textContent=t; };
+      const err = (el, t) => { el.className='err'; el.textContent=t; };
+      const clear = (el) => { el.className=''; el.textContent=''; };
+
+      const state = {
+        token: localStorage.getItem('admin_token') || null,
+        setToken(t){ this.token=t; if(t) localStorage.setItem('admin_token', t); else localStorage.removeItem('admin_token'); render(); }
+      };
+
+      $('apiBase').textContent = API_BASE;
+
+      function authHeaders(){ return state.token ? { 'Authorization':'Bearer ' + state.token } : {}; }
+
+      async function api(path, opts={}){
+        const res = await fetch(API_BASE + path, { ...opts, headers: { 'Content-Type':'application/json', ...(opts.headers||{}), ...authHeaders() }});
+        if (res.status === 401 || res.status === 403) { state.setToken(null); throw new Error('Sesión expirada o inválida'); }
+        const data = await res.json().catch(()=>({}));
+        if (!res.ok) throw new Error(data.detail || res.statusText);
+        return data;
+      }
+
+      function show(tab){
+        all('[id^="tab-"]').forEach(el=>el.classList.add('hidden'));
+        all('nav.tabs button').forEach(b=>b.classList.remove('active'));
+        by(`[data-tab="${tab}"]`).classList.add('active');
+        $(`tab-${tab}`).classList.remove('hidden');
+      }
+
+      function render(){
+        const logged = !!state.token;
+        $('viewLogin').classList.toggle('hidden', logged);
+        $('viewApp').classList.toggle('hidden', !logged);
+        $('logoutBtn').classList.toggle('hidden', !logged);
+        if (logged) show('crear');
+      }
+
+      // Eventos UI
+      by('nav.tabs')?.addEventListener('click', (e)=>{
+        if (e.target.tagName==='BUTTON') show(e.target.dataset.tab);
+      });
+      $('logoutBtn').onclick = ()=> state.setToken(null);
+
+      $('btnLogin').onclick = async () => {
+        clear($('loginMsg'));
+        try{
+          const data = await api('/login', { method:'POST', body: JSON.stringify({ dni: $('dni').value, password: $('pwd').value }) });
+          state.setToken(data.token);
+          ok($('loginMsg'), 'Login OK');
+        }catch(e){ err($('loginMsg'), e.message); }
+      };
+
+      $('btnCrear').onclick = async () => {
+        clear($('crearMsg'));
+        try{
+          const payload = { dni:$('empDni').value, nombre:$('empNombre').value, apellido:$('empApellido').value, fecha_nac:$('empFecha').value };
+          const data = await api('/employees', { method:'POST', body: JSON.stringify(payload) });
+          ok($('crearMsg'), `Creado id=${data.id}`);
+        }catch(e){ err($('crearMsg'), e.message); }
+      };
+
+      $('btnBuscar').onclick = async () => {
+        $('buscarOut').textContent='';
+        try{
+          const dni = $('buscarDni').value;
+          const data = await api('/employees?dni='+encodeURIComponent(dni));
+          $('buscarOut').textContent = JSON.stringify(data, null, 2);
+        }catch(e){ $('buscarOut').textContent = e.message; }
+      };
+
+      $('btnRostro').onclick = async () => {
+        clear($('rostroMsg'));
+        try{
+          const emb = $('rostroEmb').value.split(',').map(s=>s.trim()).filter(Boolean).map(Number);
+          if(!emb.length || emb.some(Number.isNaN)) throw new Error('Embedding inválido');
+          await api('/registrar_rostro', { method:'POST', body: JSON.stringify({ dni:$('rostroDni').value, embedding: emb }) });
+          ok($('rostroMsg'), 'Embedding guardado');
+        }catch(e){ err($('rostroMsg'), e.message); }
+      };
+
+      render();
+    </script>
+    <script>window.CONFIG = { API_BASE: 'http://localhost:8000' };</script>
+  </body>
+  </html>
