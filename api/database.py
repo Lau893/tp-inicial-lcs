@@ -50,7 +50,7 @@ def _resolve_id_rol(db: Session, rol_api: str) -> int:
     return int(row2[0])
 
 
-def create_employee(db: Session, dni: str, nombre: str, apellido: Optional[str], rol: str = "operario") -> int:
+def create_employee(db: Session, dni: str, nombre: str, apellido: Optional[str], fecha_nac: Optional[date], rol: str = "operario") -> int:
     id_rol = _resolve_id_rol(db, rol)
     row = db.execute(text(
         """
