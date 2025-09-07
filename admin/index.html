@@ -37,7 +37,6 @@
     <header>
       <div class="brand">Admin · Asistencia Facial</div>
       <div class="toolbar">
-        <span class="env">Backend: <code id="apiBase"></code></span>
         <button id="logoutBtn" class="hidden" title="Cerrar sesión">Salir</button>
       </div>
     </header>
@@ -76,20 +75,18 @@
           <div class="grid">
             <div>
               <label>DNI</label>
-              <input id="empDni" />
+              <input id="empDni" placeholder="12345678" />
               <label>Nombre</label>
-              <input id="empNombre" />
+              <input id="empNombre" placeholder="Juan" />
             </div>
             <div>
               <label>Apellido</label>
-              <input id="empApellido" />
-              <label>Fecha Nac (YYYY-MM-DD)</label>
-              <input id="empFecha" placeholder="1990-01-01" />
-            </div>
-            <div>
+              <input id="empApellido" placeholder="Pérez" />
               <label>Rol</label>
               <select id="empRol" style="width:100%; padding:10px 12px; border-radius:10px; border:1px solid #253060; background:#0c1230; color:var(--txt);">
                 <option value="operario" selected>Operario</option>
+                <option value="encargado">Encargado</option>
+                <option value="seguridad">Seguridad</option>
                 <option value="admin">Administrador</option>
               </select>
             </div>
@@ -157,7 +154,7 @@
         setToken(t){ this.token=t; if(t) localStorage.setItem('admin_token', t); else localStorage.removeItem('admin_token'); render(); }
       };
 
-      $('apiBase').textContent = API_BASE;
+      // Backend badge removido
 
       function authHeaders(){ return state.token ? { 'Authorization':'Bearer ' + state.token } : {}; }
 
@@ -203,8 +200,7 @@
         clear($('crearMsg'));
         try{
           const dni = $('empDni').value.trim();
-          const fechaNac = $('empFecha').value;
-          const payload = { dni, nombre:$('empNombre').value, apellido:$('empApellido').value, fecha_nac:fechaNac, rol: $('empRol').value };
+          const payload = { dni, nombre:$('empNombre').value, apellido:$('empApellido').value, rol: $('empRol').value };
           const data = await api('/employees', { method:'POST', body: JSON.stringify(payload) });
           ok($('crearMsg'), `Creado id=${data.id}`);
         }catch(e){ err($('crearMsg'), e.message); }
@@ -215,7 +211,8 @@
         try{
           const dni = $('buscarDni').value;
           const data = await api('/employees?dni='+encodeURIComponent(dni));
-          $('buscarOut').textContent = JSON.stringify(data, null, 2);
+          const { id, dni: ndni, nombre, apellido, rol } = data || {};
+          $('buscarOut').textContent = JSON.stringify({ id, dni: ndni, nombre, apellido, rol }, null, 2);
         }catch(e){ $('buscarOut').textContent = e.message; }
       };
 
@@ -345,16 +342,20 @@
         const grid = $('reportesGrid');
         grid.innerHTML = '';
         const wrap = document.createElement('div');
-        wrap.style.display = 'grid';
+        wrap.style.display = 'flex';
+        wrap.style.flexDirection = 'column';
+        wrap.style.alignItems = 'center';
         // Tarjetas más grandes y responsivas a lo ancho
         wrap.style.gridTemplateColumns = 'repeat(auto-fit, minmax(640px, 1fr))';
         wrap.style.gap = '24px';
         reportes.forEach(r => {
           const card = document.createElement('div');
           card.className = 'panel';
+          card.style.width = 'min(960px, 100%)';
           const h3 = document.createElement('h3');
           h3.textContent = r.title;
           h3.style.marginTop = '0';
+          h3.style.textAlign = 'center';
           const img = document.createElement('img');
           img.src = '/assets/imagenes_datos/' + r.file;
           img.alt = r.title;

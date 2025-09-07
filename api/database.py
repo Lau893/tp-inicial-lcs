@@ -33,11 +33,27 @@ def get_session() -> Session:
 
 # Operaciones de dominio
 def _map_api_rol_to_db_name(rol: str) -> str:
-    return "Administrador" if rol == "admin" else "Operario"
+    r = (rol or "").lower()
+    if r == "admin":
+        return "Administrador"
+    if r == "operario":
+        return "Operario"
+    if r == "encargado":
+        return "Encargado"
+    if r == "seguridad":
+        return "Seguridad"
+    return "Operario"
 
 
 def _map_db_name_to_api_rol(nombre: Optional[str]) -> str:
-    return "admin" if (nombre or "").lower().startswith("admin") else "operario"
+    n = (nombre or "").lower()
+    if n.startswith("admin"):
+        return "admin"
+    if n.startswith("encarg"):
+        return "encargado"
+    if n.startswith("segur"):
+        return "seguridad"
+    return "operario"
 
 
 def _resolve_id_rol(db: Session, rol_api: str) -> int:

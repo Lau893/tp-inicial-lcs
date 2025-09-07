@@ -30,7 +30,7 @@ class EmployeeCreate(BaseModel):
     nombre: str
     apellido: Optional[str] = ""
     fecha_nac: Optional[date] = None
-    rol: Literal["admin", "operario"] = "operario"
+    rol: Literal["admin", "operario", "encargado", "seguridad"] = "operario"
 
 
 class EmployeeOut(BaseModel):
@@ -40,7 +40,7 @@ class EmployeeOut(BaseModel):
     nombre: str
     apellido: Optional[str] = ""
     fecha_nac: Optional[date] = None
-    rol: Literal["admin", "operario"]
+    rol: Literal["admin", "operario", "encargado", "seguridad"]
     embedding: Optional[List[float]] = None
 
 

@@ -26,6 +26,17 @@ from .database import (
     create_asistencia,
 )
 from .rate_limit import asistencia_limiter
+
+
+def _map_db_rol_to_api(nombre: str) -> str:
+    n = (nombre or "").lower()
+    if n.startswith("admin"):
+        return "admin"
+    if n.startswith("encarg"):
+        return "encargado"
+    if n.startswith("segur"):
+        return "seguridad"
+    return "operario"
 from sqlalchemy.orm import Session
 
 
@@ -90,12 +101,6 @@ def create_employee_endpoint(payload: EmployeeCreate, _: dict = Depends(require_
     if not payload.dni.isdigit() or len(payload.dni) > 8:
         raise HTTPException(status_code=422, detail="El DNI debe ser numérico y tener hasta 8 dígitos")
 
-    from datetime import date
-    today = date.today()
-    age = today.year - payload.fecha_nac.year - ((today.month, today.day) < (payload.fecha_nac.month, payload.fecha_nac.day))
-    if age < 18:
-        raise HTTPException(status_code=422, detail="El empleado debe ser mayor de 18 años")
-
     with get_session() as db:
         # DNI único
         if get_employee_by_dni(db, payload.dni):
@@ -116,7 +121,7 @@ def get_employee_endpoint(dni: str = Query(...), _: dict = Depends(require_admin
             nombre=emp["nombre"],
             apellido=emp["apellido"],
             fecha_nac=None,
-            rol=("admin" if (emp["rol_nombre"] or "").lower().startswith("admin") else "operario"),
+            rol=_map_db_rol_to_api(emp["rol_nombre"]),
             embedding=emp["embedding"],
         )
 
