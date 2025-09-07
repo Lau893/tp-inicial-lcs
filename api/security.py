@@ -13,7 +13,7 @@ import os
 import time
 from typing import Optional
 import jwt
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status, Request
 
 
 JWT_SECRET = os.environ.get("JWT_SECRET") or os.environ.get("jwt_secret") or "dev-secret"
@@ -66,8 +66,13 @@ def require_admin(payload: dict = Depends(lambda token=Depends(get_bearer_token)
     return payload
 
 
-def require_api_key(x_api_key: Optional[str] = Header(None)):
-    """Dependency de FastAPI que valida el header x-api-key para el tótem."""
+def require_api_key(request: Request, x_api_key: Optional[str] = Header(None)):
+    """Dependency de FastAPI que valida el header x-api-key para el tótem.
+
+    Permite preflight CORS (OPTIONS) sin exigir API key para evitar 400/401.
+    """
+    if request.method == "OPTIONS":
+        return True
     expected = os.environ.get("TOTEM_API_KEY") or os.environ.get("totem_api_key")
     if not expected or x_api_key != expected:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="API key inválida")
