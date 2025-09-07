@@ -202,7 +202,9 @@
       $('btnCrear').onclick = async () => {
         clear($('crearMsg'));
         try{
-          const payload = { dni:$('empDni').value, nombre:$('empNombre').value, apellido:$('empApellido').value, fecha_nac:$('empFecha').value, rol: $('empRol').value };
+          const dni = $('empDni').value.trim();
+          const fechaNac = $('empFecha').value;
+          const payload = { dni, nombre:$('empNombre').value, apellido:$('empApellido').value, fecha_nac:fechaNac, rol: $('empRol').value };
           const data = await api('/employees', { method:'POST', body: JSON.stringify(payload) });
           ok($('crearMsg'), `Creado id=${data.id}`);
         }catch(e){ err($('crearMsg'), e.message); }

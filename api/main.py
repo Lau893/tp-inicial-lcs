@@ -30,7 +30,7 @@ from sqlalchemy.orm import Session
 
 
 def get_allowed_origins() -> list[str]:
-    raw = (os.environ.get("ALLOWED_ORIGINS") or os.environ.get("allowed_origins") or "").strip()
+    raw = (os.environ.get("ALLOWED_ORIGINS") or os.environ.get("allowed_origins") or "http://localhost:3000,http://localhost:5173,http://localhost:5174").strip()
     if not raw:
         return []
     return [o.strip() for o in raw.split(",") if o.strip()]
@@ -42,7 +42,7 @@ app = FastAPI(title="Asistencia Facial - Backend", version="1.0.0")
 origins = get_allowed_origins()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins or ["*"],  # permitir * solo en desarrollo si no configuran
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -82,6 +82,16 @@ def login(data: LoginRequest):
 
 @app.post("/employees", response_model=dict)
 def create_employee_endpoint(payload: EmployeeCreate, _: dict = Depends(require_admin)):
+    # Validaciones
+    if not payload.dni.isdigit() or len(payload.dni) > 8:
+        raise HTTPException(status_code=422, detail="El DNI debe ser numérico y tener hasta 8 dígitos")
+
+    from datetime import date
+    today = date.today()
+    age = today.year - payload.fecha_nac.year - ((today.month, today.day) < (payload.fecha_nac.month, payload.fecha_nac.day))
+    if age < 18:
+        raise HTTPException(status_code=422, detail="El empleado debe ser mayor de 18 años")
+
     with get_session() as db:
         # DNI único
         if get_employee_by_dni(db, payload.dni):
