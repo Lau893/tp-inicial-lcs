@@ -29,7 +29,6 @@ class EmployeeCreate(BaseModel):
     dni: str
     nombre: str
     apellido: Optional[str] = ""
-    fecha_nac: Optional[date] = None
     rol: Literal["admin", "operario"] = "operario"
 
 
@@ -39,7 +38,6 @@ class EmployeeOut(BaseModel):
     dni: str
     nombre: str
     apellido: Optional[str] = ""
-    fecha_nac: Optional[date] = None
     rol: Literal["admin", "operario"]
     embedding: Optional[List[float]] = None
 

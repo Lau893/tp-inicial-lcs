@@ -1,383 +1,540 @@
 <!doctype html>
 <html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Admin - Asistencia Facial</title>
-    <style>
-      :root{ --bg:#0b1020; --panel:#101935; --panel2:#0f1430; --txt:#e8ebff; --muted:#9aa4c6; --pri:#4c7dff; --ok:#17b26a; --err:#f04438; }
-      *{box-sizing:border-box}
-      body{ margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background:linear-gradient(180deg,#0b1020 0%,#0a0f24 100%); color:var(--txt); }
-      header{ display:flex; align-items:center; justify-content:space-between; padding:14px 20px; background:rgba(16,25,53,.8); position:sticky; top:0; backdrop-filter: blur(8px); border-bottom:1px solid #1f2750; }
-      header .brand{ font-weight:700; letter-spacing:.3px; }
-      header .env{ font-size:12px; color:var(--muted); }
-      main{ max-width:1400px; margin:24px auto; padding:0 16px; }
-      .panel{ background:linear-gradient(180deg,var(--panel) 0%,var(--panel2) 100%); border:1px solid #1f2750; border-radius:12px; padding:18px; box-shadow:0 10px 30px rgba(0,0,0,.25); }
-      .grid{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
-      .grid-1{ display:grid; grid-template-columns:1fr; gap:16px; }
-      h1{ font-size:22px; margin:0 0 8px; }
-      h2{ font-size:18px; margin:0 0 12px; }
-      label{ font-size:12px; color:var(--muted); display:block; margin:10px 0 4px; }
-      input, textarea{ width:100%; padding:10px 12px; border-radius:10px; border:1px solid #253060; background:#0c1230; color:var(--txt); outline:none; }
-      textarea{ min-height:110px; }
-      button{ background:var(--pri); color:#fff; border:0; padding:10px 14px; border-radius:10px; cursor:pointer; transition:.2s; }
-      button:hover{ filter:brightness(1.05) }
-      .muted{ color:var(--muted); font-size:12px }
-      .ok{ color:var(--ok) }
-      .err{ color:var(--err) }
-      .toolbar{ display:flex; gap:8px; align-items:center }
-      .hidden{ display:none !important }
-      nav.tabs{ display:flex; gap:8px; margin:0 0 16px }
-      nav.tabs button{ background:#0f1533; border:1px solid #273168 }
-      nav.tabs button.active{ background:#223070 }
-      pre{ white-space:pre-wrap; background:#0c1230; border:1px solid #253060; padding:10px; border-radius:10px }
-    </style>
-  </head>
-  <body>
-    <header>
-      <div class="brand">Admin · Asistencia Facial</div>
-      <div class="toolbar">
-        <span class="env">Backend: <code id="apiBase"></code></span>
-        <button id="logoutBtn" class="hidden" title="Cerrar sesión">Salir</button>
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin - Asistencia Facial</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #101935;
+      --panel2: #0f1430;
+      --txt: #e8ebff;
+      --muted: #9aa4c6;
+      --pri: #4c7dff;
+      --ok: #17b26a;
+      --err: #f04438;
+    }
+
+    * {
+      box-sizing: border-box
+    }
+
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      background: linear-gradient(180deg, #0b1020 0%, #0a0f24 100%);
+      color: var(--txt);
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      background: rgba(16, 25, 53, .8);
+      position: sticky;
+      top: 0;
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid #1f2750;
+    }
+
+    header .brand {
+      font-weight: 700;
+      letter-spacing: .3px;
+    }
+
+    header .env {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    main {
+      max-width: 1400px;
+      margin: 24px auto;
+      padding: 0 16px;
+    }
+
+    .panel {
+      background: linear-gradient(180deg, var(--panel) 0%, var(--panel2) 100%);
+      border: 1px solid #1f2750;
+      border-radius: 12px;
+      padding: 18px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, .25);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .grid-1 {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    h1 {
+      font-size: 22px;
+      margin: 0 0 8px;
+    }
+
+    h2 {
+      font-size: 18px;
+      margin: 0 0 12px;
+    }
+
+    label {
+      font-size: 12px;
+      color: var(--muted);
+      display: block;
+      margin: 10px 0 4px;
+    }
+
+    input,
+    textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid #253060;
+      background: #0c1230;
+      color: var(--txt);
+      outline: none;
+    }
+
+    textarea {
+      min-height: 110px;
+    }
+
+    button {
+      background: var(--pri);
+      color: #fff;
+      border: 0;
+      padding: 10px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: .2s;
+    }
+
+    button:hover {
+      filter: brightness(1.05)
+    }
+
+    .muted {
+      color: var(--muted);
+      font-size: 12px
+    }
+
+    .ok {
+      color: var(--ok)
+    }
+
+    .err {
+      color: var(--err)
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      align-items: center
+    }
+
+    .hidden {
+      display: none !important
+    }
+
+    nav.tabs {
+      display: flex;
+      gap: 8px;
+      margin: 0 0 16px
+    }
+
+    nav.tabs button {
+      background: #0f1533;
+      border: 1px solid #273168
+    }
+
+    nav.tabs button.active {
+      background: #223070
+    }
+
+    pre {
+      white-space: pre-wrap;
+      background: #0c1230;
+      border: 1px solid #253060;
+      padding: 10px;
+      border-radius: 10px
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="brand">Admin · Asistencia Facial</div>
+    <div class="toolbar">
+      <span class="env">Backend: <code id="apiBase"></code></span>
+      <button id="logoutBtn" class="hidden" title="Cerrar sesión">Salir</button>
+    </div>
+  </header>
+  <main>
+    <!-- Vista: Login -->
+    <section id="viewLogin" class="panel">
+      <h1>Iniciar sesión</h1>
+      <p class="muted">Accedé con las credenciales de administrador.</p>
+      <div class="grid">
+        <div>
+          <label>DNI</label>
+          <input id="dni" placeholder="12345678" />
+        </div>
+        <div>
+          <label>Password</label>
+          <input id="pwd" type="password" placeholder="adminpass" />
+        </div>
       </div>
-    </header>
-    <main>
-      <!-- Vista: Login -->
-      <section id="viewLogin" class="panel">
-        <h1>Iniciar sesión</h1>
-        <p class="muted">Accedé con las credenciales de administrador.</p>
+      <div style="margin-top:12px">
+        <button id="btnLogin">Ingresar</button>
+        <span id="loginMsg"></span>
+      </div>
+    </section>
+
+    <!-- Vista: App protegida -->
+    <section id="viewApp" class="hidden">
+      <nav class="tabs">
+        <button data-tab="crear" class="active">Crear Empleado</button>
+        <button data-tab="consultar">Consultar</button>
+        <button data-tab="rostro">Registrar Rostro</button>
+        <button data-tab="reportes">Reportes</button>
+      </nav>
+
+      <div id="tab-crear" class="panel">
+        <h2>Crear Empleado</h2>
         <div class="grid">
           <div>
             <label>DNI</label>
-            <input id="dni" placeholder="12345678" />
+            <input id="empDni" oninput="this.value = this.value.replace(/[^0-9]/g, '')" />
+            <label>Nombre</label>
+            <input id="empNombre" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '')" />
           </div>
           <div>
-            <label>Password</label>
-            <input id="pwd" type="password" placeholder="adminpass" />
+            <label>Apellido</label>
+            <input id="empApellido" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '')" />
+          </div>
+          <div>
+            <label>Rol</label>
+            <select id="empRol"
+              style="width:100%; padding:10px 12px; border-radius:10px; border:1px solid #253060; background:#0c1230; color:var(--txt);">
+              <option value="operario" selected>Operario</option>
+              <option value="admin">Administrador</option>
+            </select>
           </div>
         </div>
         <div style="margin-top:12px">
-          <button id="btnLogin">Ingresar</button>
-          <span id="loginMsg"></span>
+          <button id="btnCrear">Crear</button>
+          <span id="crearMsg"></span>
         </div>
-      </section>
+      </div>
 
-      <!-- Vista: App protegida -->
-      <section id="viewApp" class="hidden">
-        <nav class="tabs">
-          <button data-tab="crear" class="active">Crear Empleado</button>
-          <button data-tab="consultar">Consultar</button>
-          <button data-tab="rostro">Registrar Rostro</button>
-          <button data-tab="reportes">Reportes</button>
-        </nav>
-
-        <div id="tab-crear" class="panel">
-          <h2>Crear Empleado</h2>
-          <div class="grid">
-            <div>
-              <label>DNI</label>
-              <input id="empDni" />
-              <label>Nombre</label>
-              <input id="empNombre" />
-            </div>
-            <div>
-              <label>Apellido</label>
-              <input id="empApellido" />
-              <label>Fecha Nac (YYYY-MM-DD)</label>
-              <input id="empFecha" placeholder="1990-01-01" />
-            </div>
-            <div>
-              <label>Rol</label>
-              <select id="empRol" style="width:100%; padding:10px 12px; border-radius:10px; border:1px solid #253060; background:#0c1230; color:var(--txt);">
-                <option value="operario" selected>Operario</option>
-                <option value="admin">Administrador</option>
-              </select>
-            </div>
-          </div>
-          <div style="margin-top:12px">
-            <button id="btnCrear">Crear</button>
-            <span id="crearMsg"></span>
+      <div id="tab-consultar" class="panel hidden">
+        <h2>Consultar Empleado</h2>
+        <div class="grid-1">
+          <div>
+            <label>DNI</label>
+            <input id="buscarDni" oninput="this.value = this.value.replace(/[^0-9]/g, '')" />
           </div>
         </div>
-
-        <div id="tab-consultar" class="panel hidden">
-          <h2>Consultar Empleado</h2>
-          <div class="grid-1">
-            <div>
-              <label>DNI</label>
-              <input id="buscarDni" />
-            </div>
-          </div>
-          <div style="margin-top:12px">
-            <button id="btnBuscar">Buscar</button>
-          </div>
-          <pre id="buscarOut" style="margin-top:12px"></pre>
+        <div style="margin-top:12px">
+          <button id="btnBuscar">Buscar</button>
         </div>
+        <pre id="buscarOut" style="margin-top:12px"></pre>
+      </div>
 
-        <div id="tab-rostro" class="panel hidden">
-          <h2>Registrar Rostro</h2>
-          <p class="muted">Capturá desde la cámara. El embedding se calcula en el navegador y se envía al backend.</p>
-          <div class="grid">
-            <div>
-              <label>DNI</label>
-              <input id="rostroDni" />
-              <div style="margin-top:8px">
-                <button id="camStartBtn">Iniciar cámara</button>
-                <button id="captureBtn">Capturar y Registrar</button>
-              </div>
-              <div id="rostroMsg" style="margin-top:8px"></div>
+      <div id="tab-rostro" class="panel hidden">
+        <h2>Registrar Rostro</h2>
+        <p class="muted">Capturá desde la cámara. El embedding se calcula en el navegador y se envía al backend.</p>
+        <div class="grid">
+          <div>
+            <label>DNI</label>
+            <input id="rostroDni" oninput="this.value = this.value.replace(/[^0-9]/g, '')" />
+            <div style="margin-top:8px">
+              <button id="camStartBtn">Iniciar cámara</button>
+              <button id="captureBtn">Capturar y Registrar</button>
             </div>
-            <div>
-              <video id="cam" autoplay playsinline muted style="width:100%; max-width:360px; background:#0c1230; border:1px solid #253060; border-radius:10px"></video>
-              <canvas id="off" width="112" height="112" style="display:none"></canvas>
-              <p class="muted" style="margin-top:8px">Modelo: <code id="modelInfo">no configurado</code></p>
-            </div>
+            <div id="rostroMsg" style="margin-top:8px"></div>
+          </div>
+          <div>
+            <video id="cam" autoplay playsinline muted
+              style="width:100%; max-width:360px; background:#0c1230; border:1px solid #253060; border-radius:10px"></video>
+            <canvas id="off" width="112" height="112" style="display:none"></canvas>
           </div>
         </div>
+      </div>
 
-        <div id="tab-reportes" class="panel hidden">
-          <h2>Reportes</h2>
-          <p class="muted">Visualización de métricas y análisis clave del negocio.</p>
-          <div id="reportesGrid" class="grid-1"></div>
-        </div>
-      </section>
-    </main>
+      <div id="tab-reportes" class="panel hidden">
+        <h2>Reportes</h2>
+        <p class="muted">Visualización de métricas y análisis clave del negocio.</p>
+        <div id="reportesGrid" class="grid-1"></div>
+      </div>
+    </section>
+  </main>
 
-    <script>
-      const API_BASE = (window.CONFIG && window.CONFIG.API_BASE) || 'http://localhost:8000';
-      const $ = (id) => document.getElementById(id);
-      const by = (sel) => document.querySelector(sel);
-      const all = (sel) => Array.from(document.querySelectorAll(sel));
-      const ok = (el, t) => { el.className='ok'; el.textContent=t; };
-      const err = (el, t) => { el.className='err'; el.textContent=t; };
-      const clear = (el) => { el.className=''; el.textContent=''; };
+  <script>
+    const API_BASE = (window.CONFIG && window.CONFIG.API_BASE) || 'http://localhost:8000';
+    const $ = (id) => document.getElementById(id);
+    const by = (sel) => document.querySelector(sel);
+    const all = (sel) => Array.from(document.querySelectorAll(sel));
+    const ok = (el, t) => { el.className = 'ok'; el.textContent = t; };
+    const err = (el, t) => { el.className = 'err'; el.textContent = t; };
+    const clear = (el) => { el.className = ''; el.textContent = ''; };
 
-      const state = {
-        token: localStorage.getItem('admin_token') || null,
-        setToken(t){ this.token=t; if(t) localStorage.setItem('admin_token', t); else localStorage.removeItem('admin_token'); render(); }
-      };
+    const state = {
+      token: localStorage.getItem('admin_token') || null,
+      setToken(t) { this.token = t; if (t) localStorage.setItem('admin_token', t); else localStorage.removeItem('admin_token'); render(); }
+    };
 
-      $('apiBase').textContent = API_BASE;
+    $('apiBase').textContent = API_BASE;
 
-      function authHeaders(){ return state.token ? { 'Authorization':'Bearer ' + state.token } : {}; }
+    function authHeaders() { return state.token ? { 'Authorization': 'Bearer ' + state.token } : {}; }
 
-      async function api(path, opts={}){
-        const res = await fetch(API_BASE + path, { ...opts, headers: { 'Content-Type':'application/json', ...(opts.headers||{}), ...authHeaders() }});
-        if (res.status === 401 || res.status === 403) { state.setToken(null); throw new Error('Sesión expirada o inválida'); }
-        const data = await res.json().catch(()=>({}));
-        if (!res.ok) throw new Error(data.detail || res.statusText);
-        return data;
+    async function api(path, opts = {}) {
+      const res = await fetch(API_BASE + path, { ...opts, headers: { 'Content-Type': 'application/json', ...(opts.headers || {}), ...authHeaders() } });
+      if (res.status === 401 || res.status === 403) { state.setToken(null); throw new Error('Sesión expirada o inválida'); }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || res.statusText);
+      return data;
+    }
+
+    function show(tab) {
+      all('[id^="tab-"]').forEach(el => el.classList.add('hidden'));
+      all('nav.tabs button').forEach(b => b.classList.remove('active'));
+      by(`[data-tab="${tab}"]`).classList.add('active');
+      $(`tab-${tab}`).classList.remove('hidden');
+    }
+
+    function soloLetras(e) {
+      const char = String.fromCharCode(e.which);
+      const regex = /^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]$/;
+      if (!regex.test(char)) {
+        e.preventDefault(); // Bloquea el carácter
       }
+    }
 
-      function show(tab){
-        all('[id^="tab-"]').forEach(el=>el.classList.add('hidden'));
-        all('nav.tabs button').forEach(b=>b.classList.remove('active'));
-        by(`[data-tab="${tab}"]`).classList.add('active');
-        $(`tab-${tab}`).classList.remove('hidden');
+    function render() {
+      const logged = !!state.token;
+      $('viewLogin').classList.toggle('hidden', logged);
+      $('viewApp').classList.toggle('hidden', !logged);
+      $('logoutBtn').classList.toggle('hidden', !logged);
+      if (logged) show('crear');
+    }
+
+    // Eventos UI
+    by('nav.tabs')?.addEventListener('click', (e) => {
+      if (e.target.tagName === 'BUTTON') show(e.target.dataset.tab);
+    });
+    $('logoutBtn').onclick = () => state.setToken(null);
+
+    $('btnLogin').onclick = async () => {
+      clear($('loginMsg'));
+      try {
+        const data = await api('/login', { method: 'POST', body: JSON.stringify({ dni: $('dni').value, password: $('pwd').value }) });
+        state.setToken(data.token);
+        ok($('loginMsg'), 'Login OK');
+      } catch (e) { err($('loginMsg'), e.message); }
+    };
+
+    $('btnCrear').onclick = async () => {
+      clear($('crearMsg'));
+      try {
+        const payload = { dni: $('empDni').value, nombre: $('empNombre').value, apellido: $('empApellido').value, rol: $('empRol').value };
+        if (!/^[0-9]+$/.test(payload.dni)) {
+          throw new Error('El DNI solo puede contener números.');
+        }
+        if (!/^\d{8}$/.test(payload.dni)) {
+          throw new Error('El DNI debe tener exactamente 8 dígitos numéricos.');
+        }
+        if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/.test(payload.nombre)) {
+          throw new Error('El nombre solo puede contener letras y espacios.');
+        }
+        if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/.test(payload.apellido)) {
+          throw new Error('El apellido solo puede contener letras y espacios.');
+        }
+
+        const data = await api('/employees', { method: 'POST', body: JSON.stringify(payload) });
+        ok($('crearMsg'), `Creado id=${data.id}`);
+      } catch (e) { err($('crearMsg'), e.message); }
+    };
+
+    $('btnBuscar').onclick = async () => {
+      $('buscarOut').textContent = '';
+      try {
+        const dni = $('buscarDni').value;
+        const data = await api('/employees?dni=' + encodeURIComponent(dni));
+        $('buscarOut').textContent = JSON.stringify(data, null, 2);
+      } catch (e) { $('buscarOut').textContent = e.message; }
+    };
+
+    // --- Cámara y Embedding en el navegador ---
+    let camStream = null;
+    let ortSession = null; // onnxruntime-web session
+
+    async function startCamera() {
+      try {
+        camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 }, audio: false });
+        $('cam').srcObject = camStream;
+        ok($('rostroMsg'), 'Cámara lista');
+      } catch (e) { err($('rostroMsg'), 'No se pudo acceder a la cámara: ' + e.message); }
+    }
+
+    async function ensureOrt() {
+      try {
+        if (!window.ort) throw new Error('onnxruntime-web no disponible');
+        if (ortSession) return ortSession;
+        const url = (window.CONFIG && window.CONFIG.MODEL_URL) || '';
+        if (!url) throw new Error('MODEL_URL no configurado');
+        $('modelInfo').textContent = url;
+        const head = await fetch(url, { method: 'HEAD' });
+        if (!head.ok) throw new Error('Modelo no encontrado en ' + url);
+        ort.env.wasm.numThreads = 1;
+        ortSession = await ort.InferenceSession.create(url, { executionProviders: ['wasm'] });
+        return ortSession;
+      } catch (e) {
+        $('modelInfo').textContent = 'demo sin modelo (fallback)';
+        return null;
       }
+    }
 
-      function render(){
-        const logged = !!state.token;
-        $('viewLogin').classList.toggle('hidden', logged);
-        $('viewApp').classList.toggle('hidden', !logged);
-        $('logoutBtn').classList.toggle('hidden', !logged);
-        if (logged) show('crear');
+    function preprocessToTensor(videoEl) {
+      // Tomar un frame del video, redimensionar a 112x112, RGB, normalizar a [-1,1], NCHW
+      const cvs = $('off');
+      const ctx = cvs.getContext('2d');
+      // Tomamos un recorte centrado cuadrado
+      const vw = videoEl.videoWidth, vh = videoEl.videoHeight;
+      const side = Math.min(vw, vh);
+      const sx = Math.floor((vw - side) / 2), sy = Math.floor((vh - side) / 2);
+      ctx.drawImage(videoEl, sx, sy, side, side, 0, 0, 112, 112);
+      const img = ctx.getImageData(0, 0, 112, 112).data; // RGBA
+      const out = new Float32Array(1 * 3 * 112 * 112);
+      const H = 112, W = 112;
+      // NCHW: [1,3,112,112]
+      let idxR = 0, idxG = H * W, idxB = 2 * H * W;
+      for (let i = 0, p = 0; i < img.length; i += 4, p++) {
+        const r = img[i], g = img[i + 1], b = img[i + 2];
+        out[idxR++] = (r / 127.5) - 1.0;
+        out[idxG++] = (g / 127.5) - 1.0;
+        out[idxB++] = (b / 127.5) - 1.0;
       }
+      return out;
+    }
 
-      // Eventos UI
-      by('nav.tabs')?.addEventListener('click', (e)=>{
-        if (e.target.tagName==='BUTTON') show(e.target.dataset.tab);
+    function l2normalize(arr) {
+      let sum = 0; for (let i = 0; i < arr.length; i++) sum += arr[i] * arr[i];
+      const norm = Math.sqrt(sum) || 1;
+      for (let i = 0; i < arr.length; i++) arr[i] = arr[i] / norm;
+      return arr;
+    }
+
+    function fallbackEmbedding(videoEl) {
+      const vw = videoEl.videoWidth, vh = videoEl.videoHeight;
+      const side = Math.min(vw, vh);
+      const sx = Math.floor((vw - side) / 2), sy = Math.floor((vh - side) / 2);
+      const tmp = document.createElement('canvas');
+      tmp.width = 16; tmp.height = 8;
+      const tctx = tmp.getContext('2d');
+      tctx.drawImage(videoEl, sx, sy, side, side, 0, 0, 16, 8);
+      const img = tctx.getImageData(0, 0, 16, 8).data;
+      const vec = new Float32Array(128);
+      for (let i = 0, p = 0; i < img.length; i += 4, p++) {
+        const r = img[i], g = img[i + 1], b = img[i + 2];
+        const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+        vec[p] = (gray / 127.5) - 1.0;
+      }
+      // L2
+      let s = 0; for (let k = 0; k < vec.length; k++) s += vec[k] * vec[k];
+      s = Math.sqrt(s) || 1; for (let k = 0; k < vec.length; k++) vec[k] /= s;
+      return Array.from(vec);
+    }
+
+    async function captureAndRegister() {
+      clear($('rostroMsg'));
+      try {
+        if (!camStream) await startCamera();
+        const session = await ensureOrt();
+        let emb;
+        if (session) {
+          const input = preprocessToTensor($('cam'));
+          const feeds = {};
+          const inputName = session.inputNames ? session.inputNames[0] : session.inputNames?.[0];
+          const name = inputName || (session.inputNames && session.inputNames[0]) || Object.keys(session.inputNames || {})[0];
+          feeds[name] = new ort.Tensor('float32', input, [1, 3, 112, 112]);
+          const outputMap = await session.run(feeds);
+          const first = outputMap[session.outputNames ? session.outputNames[0] : Object.keys(outputMap)[0]];
+          emb = Array.from(first.data);
+          l2normalize(emb);
+        } else {
+          emb = fallbackEmbedding($('cam'));
+          ok($('rostroMsg'), 'Usando modo demo sin modelo (embedding sintético)');
+        }
+        // Enviar al backend
+        const dni = $('rostroDni').value.trim();
+        if (!dni) throw new Error('Ingresá un DNI');
+        await api('/registrar_rostro', { method: 'POST', body: JSON.stringify({ dni, embedding: emb }) });
+        ok($('rostroMsg'), 'Embedding registrado');
+      } catch (e) { err($('rostroMsg'), e.message); }
+    }
+
+    $('camStartBtn').onclick = () => startCamera();
+    $('captureBtn').onclick = () => captureAndRegister();
+
+    // --- Reportes ---
+    const reportes = [
+      { file: 'puntualidad_por_operario.png', title: 'Puntualidad por Operario' },
+      { file: 'porcentaje_pedida_promedio_por_producto.png', title: 'Porcentaje Pedida Promedio por Producto' },
+      { file: 'ganancia_por_produccion_empleados.png', title: 'Ganancia por Producción (Empleados)' },
+      { file: 'evolucion_ingresos_mensuales.png', title: 'Evolución de Ingresos Mensuales' },
+      { file: 'Dinero_perdido_por_vencimiento_de_productos.png', title: 'Dinero Perdido por Vencimiento de Productos' },
+      { file: 'cantidad_unidades_desperdiciadas_por_producto.png', title: 'Cantidad de Unidades Desperdiciadas por Producto' },
+    ];
+
+    function renderReportes() {
+      const grid = $('reportesGrid');
+      grid.innerHTML = '';
+      const wrap = document.createElement('div');
+      wrap.style.display = 'grid';
+      // Tarjetas más grandes y responsivas a lo ancho
+      wrap.style.gridTemplateColumns = 'repeat(auto-fit, minmax(640px, 1fr))';
+      wrap.style.gap = '24px';
+      reportes.forEach(r => {
+        const card = document.createElement('div');
+        card.className = 'panel';
+        const h3 = document.createElement('h3');
+        h3.textContent = r.title;
+        h3.style.marginTop = '0';
+        const img = document.createElement('img');
+        img.src = '/assets/imagenes_datos/' + r.file;
+        img.alt = r.title;
+        img.style.width = '100%';
+        img.style.borderRadius = '8px';
+        img.style.border = '1px solid #253060';
+        img.loading = 'lazy';
+        card.appendChild(h3);
+        card.appendChild(img);
+        wrap.appendChild(card);
+
       });
-      $('logoutBtn').onclick = ()=> state.setToken(null);
+      grid.appendChild(wrap);
+    }
 
-      $('btnLogin').onclick = async () => {
-        clear($('loginMsg'));
-        try{
-          const data = await api('/login', { method:'POST', body: JSON.stringify({ dni: $('dni').value, password: $('pwd').value }) });
-          state.setToken(data.token);
-          ok($('loginMsg'), 'Login OK');
-        }catch(e){ err($('loginMsg'), e.message); }
-      };
+    // Render inicial
+    renderReportes();
 
-      $('btnCrear').onclick = async () => {
-        clear($('crearMsg'));
-        try{
-          const dni = $('empDni').value.trim();
-          const fechaNac = $('empFecha').value;
-          const payload = { dni, nombre:$('empNombre').value, apellido:$('empApellido').value, fecha_nac:fechaNac, rol: $('empRol').value };
-          const data = await api('/employees', { method:'POST', body: JSON.stringify(payload) });
-          ok($('crearMsg'), `Creado id=${data.id}`);
-        }catch(e){ err($('crearMsg'), e.message); }
-      };
+    render();
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+  <script>
+    // Por defecto, intentamos cargar un modelo local servido en /model/face_embedder.onnx
+    window.CONFIG = { API_BASE: 'http://localhost:8000', MODEL_URL: '/model/face_embedder.onnx' };
+  </script>
+</body>
 
-      $('btnBuscar').onclick = async () => {
-        $('buscarOut').textContent='';
-        try{
-          const dni = $('buscarDni').value;
-          const data = await api('/employees?dni='+encodeURIComponent(dni));
-          $('buscarOut').textContent = JSON.stringify(data, null, 2);
-        }catch(e){ $('buscarOut').textContent = e.message; }
-      };
-
-      // --- Cámara y Embedding en el navegador ---
-      let camStream = null;
-      let ortSession = null; // onnxruntime-web session
-
-      async function startCamera(){
-        try{
-          camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 }, audio:false });
-          $('cam').srcObject = camStream;
-          ok($('rostroMsg'), 'Cámara lista');
-        }catch(e){ err($('rostroMsg'), 'No se pudo acceder a la cámara: ' + e.message); }
-      }
-
-      async function ensureOrt(){
-        try{
-          if (!window.ort) throw new Error('onnxruntime-web no disponible');
-          if (ortSession) return ortSession;
-          const url = (window.CONFIG && window.CONFIG.MODEL_URL) || '';
-          if (!url) throw new Error('MODEL_URL no configurado');
-          $('modelInfo').textContent = url;
-          const head = await fetch(url, { method:'HEAD' });
-          if (!head.ok) throw new Error('Modelo no encontrado en '+url);
-          ort.env.wasm.numThreads = 1;
-          ortSession = await ort.InferenceSession.create(url, { executionProviders: ['wasm'] });
-          return ortSession;
-        }catch(e){
-          $('modelInfo').textContent = 'demo sin modelo (fallback)';
-          return null;
-        }
-      }
-
-      function preprocessToTensor(videoEl){
-        // Tomar un frame del video, redimensionar a 112x112, RGB, normalizar a [-1,1], NCHW
-        const cvs = $('off');
-        const ctx = cvs.getContext('2d');
-        // Tomamos un recorte centrado cuadrado
-        const vw = videoEl.videoWidth, vh = videoEl.videoHeight;
-        const side = Math.min(vw, vh);
-        const sx = Math.floor((vw - side)/2), sy = Math.floor((vh - side)/2);
-        ctx.drawImage(videoEl, sx, sy, side, side, 0, 0, 112, 112);
-        const img = ctx.getImageData(0, 0, 112, 112).data; // RGBA
-        const out = new Float32Array(1 * 3 * 112 * 112);
-        const H = 112, W = 112;
-        // NCHW: [1,3,112,112]
-        let idxR = 0, idxG = H*W, idxB = 2*H*W;
-        for (let i=0, p=0; i<img.length; i+=4, p++){
-          const r = img[i], g = img[i+1], b = img[i+2];
-          out[idxR++] = (r/127.5)-1.0;
-          out[idxG++] = (g/127.5)-1.0;
-          out[idxB++] = (b/127.5)-1.0;
-        }
-        return out;
-      }
-
-      function l2normalize(arr){
-        let sum=0; for (let i=0;i<arr.length;i++) sum += arr[i]*arr[i];
-        const norm = Math.sqrt(sum) || 1;
-        for (let i=0;i<arr.length;i++) arr[i] = arr[i]/norm;
-        return arr;
-      }
-
-      function fallbackEmbedding(videoEl){
-        const vw = videoEl.videoWidth, vh = videoEl.videoHeight;
-        const side = Math.min(vw, vh);
-        const sx = Math.floor((vw - side)/2), sy = Math.floor((vh - side)/2);
-        const tmp = document.createElement('canvas');
-        tmp.width = 16; tmp.height = 8;
-        const tctx = tmp.getContext('2d');
-        tctx.drawImage(videoEl, sx, sy, side, side, 0, 0, 16, 8);
-        const img = tctx.getImageData(0,0,16,8).data;
-        const vec = new Float32Array(128);
-        for (let i=0, p=0; i<img.length; i+=4, p++){
-          const r = img[i], g = img[i+1], b = img[i+2];
-          const gray = 0.299*r + 0.587*g + 0.114*b;
-          vec[p] = (gray/127.5)-1.0;
-        }
-        // L2
-        let s=0; for (let k=0;k<vec.length;k++) s += vec[k]*vec[k];
-        s = Math.sqrt(s) || 1; for (let k=0;k<vec.length;k++) vec[k] /= s;
-        return Array.from(vec);
-      }
-
-      async function captureAndRegister(){
-        clear($('rostroMsg'));
-        try{
-          if (!camStream) await startCamera();
-          const session = await ensureOrt();
-          let emb;
-          if (session){
-            const input = preprocessToTensor($('cam'));
-            const feeds = {};
-            const inputName = session.inputNames ? session.inputNames[0] : session.inputNames?.[0];
-            const name = inputName || (session.inputNames && session.inputNames[0]) || Object.keys(session.inputNames || {})[0];
-            feeds[name] = new ort.Tensor('float32', input, [1,3,112,112]);
-            const outputMap = await session.run(feeds);
-            const first = outputMap[session.outputNames ? session.outputNames[0] : Object.keys(outputMap)[0]];
-            emb = Array.from(first.data);
-            l2normalize(emb);
-          } else {
-            emb = fallbackEmbedding($('cam'));
-            ok($('rostroMsg'), 'Usando modo demo sin modelo (embedding sintético)');
-          }
-          // Enviar al backend
-          const dni = $('rostroDni').value.trim();
-          if (!dni) throw new Error('Ingresá un DNI');
-          await api('/registrar_rostro', { method:'POST', body: JSON.stringify({ dni, embedding: emb }) });
-          ok($('rostroMsg'), 'Embedding registrado');
-        }catch(e){ err($('rostroMsg'), e.message); }
-      }
-
-      $('camStartBtn').onclick = () => startCamera();
-      $('captureBtn').onclick = () => captureAndRegister();
-
-      // --- Reportes ---
-      const reportes = [
-        { file: 'puntualidad_por_operario.png', title: 'Puntualidad por Operario' },
-        { file: 'porcentaje_pedida_promedio_por_producto.png', title: 'Porcentaje Pedida Promedio por Producto' },
-        { file: 'ganancia_por_produccion_empleados.png', title: 'Ganancia por Producción (Empleados)' },
-        { file: 'evolucion_ingresos_mensuales.png', title: 'Evolución de Ingresos Mensuales' },
-        { file: 'Dinero_perdido_por_vencimiento_de_productos.png', title: 'Dinero Perdido por Vencimiento de Productos' },
-        { file: 'cantidad_unidades_desperdiciadas_por_producto.png', title: 'Cantidad de Unidades Desperdiciadas por Producto' },
-      ];
-
-      function renderReportes(){
-        const grid = $('reportesGrid');
-        grid.innerHTML = '';
-        const wrap = document.createElement('div');
-        wrap.style.display = 'grid';
-        // Tarjetas más grandes y responsivas a lo ancho
-        wrap.style.gridTemplateColumns = 'repeat(auto-fit, minmax(640px, 1fr))';
-        wrap.style.gap = '24px';
-        reportes.forEach(r => {
-          const card = document.createElement('div');
-          card.className = 'panel';
-          const h3 = document.createElement('h3');
-          h3.textContent = r.title;
-          h3.style.marginTop = '0';
-          const img = document.createElement('img');
-          img.src = '/assets/imagenes_datos/' + r.file;
-          img.alt = r.title;
-          img.style.width = '100%';
-          img.style.borderRadius = '8px';
-          img.style.border = '1px solid #253060';
-          img.loading = 'lazy';
-          card.appendChild(h3);
-          card.appendChild(img);
-          wrap.appendChild(card);
-        });
-        grid.appendChild(wrap);
-      }
-
-      // Render inicial
-      renderReportes();
-
-      render();
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
-    <script>
-      // Por defecto, intentamos cargar un modelo local servido en /model/face_embedder.onnx
-      window.CONFIG = { API_BASE: 'http://localhost:8000', MODEL_URL: '/model/face_embedder.onnx' };
-    </script>
-  </body>
-  </html>
+</html>

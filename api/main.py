@@ -1,7 +1,9 @@
 import os
+import re
 from fastapi import FastAPI, Depends, HTTPException, status, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+
 
 from .schemas import (
     LoginRequest,
@@ -30,11 +32,7 @@ from sqlalchemy.orm import Session
 
 
 def get_allowed_origins() -> list[str]:
-    raw = (
-        os.environ.get("ALLOWED_ORIGINS")
-        or os.environ.get("allowed_origins")
-        or "http://localhost:3000,http://localhost:5173,http://localhost:5174,http://127.0.0.1:3000,http://127.0.0.1:5173,http://127.0.0.1:5174"
-    ).strip()
+    raw = (os.environ.get("ALLOWED_ORIGINS") or os.environ.get("allowed_origins") or "").strip()
     if not raw:
         return []
     return [o.strip() for o in raw.split(",") if o.strip()]
@@ -46,7 +44,7 @@ app = FastAPI(title="Asistencia Facial - Backend", version="1.0.0")
 origins = get_allowed_origins()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=origins or ["*"],  # permitir * solo en desarrollo si no configuran
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -83,26 +81,23 @@ def login(data: LoginRequest):
 
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales inválidas")
 
-
 @app.post("/employees", response_model=dict)
 def create_employee_endpoint(payload: EmployeeCreate, _: dict = Depends(require_admin)):
-    # Validaciones
-    if not payload.dni.isdigit() or len(payload.dni) > 8:
-        raise HTTPException(status_code=422, detail="El DNI debe ser numérico y tener hasta 8 dígitos")
 
-    from datetime import date
-    today = date.today()
-    age = today.year - payload.fecha_nac.year - ((today.month, today.day) < (payload.fecha_nac.month, payload.fecha_nac.day))
-    if age < 18:
-        raise HTTPException(status_code=422, detail="El empleado debe ser mayor de 18 años")
+    # Validación de DNI
+    if not (payload.dni.isdigit() and len(payload.dni) == 8):
+        raise HTTPException(status_code=422, detail="El DNI debe tener exactamente 8 dígitos numéricos")
+
+    
 
     with get_session() as db:
-        # DNI único
+        # Verificar que el DNI no exista
         if get_employee_by_dni(db, payload.dni):
             raise HTTPException(status_code=409, detail="DNI ya existe")
-        emp_id = create_employee(db, payload.dni, payload.nombre, payload.apellido, payload.fecha_nac, payload.rol)
+        
+        # Crear empleado
+        emp_id = create_employee(db, payload.dni, payload.nombre, payload.apellido, payload.rol)
         return {"id": emp_id}
-
 
 @app.get("/employees", response_model=EmployeeOut)
 def get_employee_endpoint(dni: str = Query(...), _: dict = Depends(require_admin)):
@@ -115,10 +110,10 @@ def get_employee_endpoint(dni: str = Query(...), _: dict = Depends(require_admin
             dni=emp["dni"],
             nombre=emp["nombre"],
             apellido=emp["apellido"],
-            fecha_nac=None,
             rol=("admin" if (emp["rol_nombre"] or "").lower().startswith("admin") else "operario"),
             embedding=emp["embedding"],
         )
+
 
 
 @app.get("/employees/resolve", response_model=dict)
