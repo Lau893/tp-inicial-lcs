@@ -392,5 +392,9 @@
       // Por defecto, intentamos cargar un modelo local servido en /model/face_embedder.onnx
       window.CONFIG = { API_BASE: 'https://administracion-pyme-alimenticia.onrender.com', MODEL_URL: '/model/face_embedder.onnx' };
     </script>
+    <script>
+      // Asegurar que API_BASE tome el valor de window.CONFIG aunque éste se defina al final
+      try { if (window.CONFIG && window.CONFIG.API_BASE) { API_BASE = window.CONFIG.API_BASE; } } catch (_) {}
+    </script>
   </body>
   </html>
