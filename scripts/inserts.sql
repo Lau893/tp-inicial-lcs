@@ -17,24 +17,24 @@ INSERT INTO rol (nombre) VALUES ('Seguridad');
 INSERT INTO rol (nombre) VALUES ('Administrador');
 
 -- EMPLEADOS
-INSERT INTO empleado (nombre, documento, id_rol) VALUES ('Carlos Gomez', '28123456', 1);
-INSERT INTO empleado (nombre, documento, id_rol) VALUES ('Ana Fernandez', '30789012', 1);
-INSERT INTO empleado (nombre, documento, id_rol) VALUES ('Juan Perez', '32456789', 2);
-INSERT INTO empleado (nombre, documento, id_rol) VALUES ('Maria Rodriguez', '33123456', 2);
-INSERT INTO empleado (nombre, documento, id_rol) VALUES ('Pedro Martinez', '31789012', 2);
-INSERT INTO empleado (nombre, documento, id_rol) VALUES ('Laura Sanchez', '34456789', 2);
-INSERT INTO empleado (nombre, documento, id_rol) VALUES ('Diego Lopez', '35123456', 2);
-INSERT INTO empleado (nombre, documento, id_rol) VALUES ('Sofia Diaz', '36789012', 2);
-INSERT INTO empleado (nombre, documento, id_rol) VALUES ('Martin Gonzalez', '37456789', 2);
-INSERT INTO empleado (nombre, documento, id_rol) VALUES ('Lucia Torres', '38123456', 2);
-INSERT INTO empleado (nombre, documento, id_rol) VALUES ('Javier Ramirez', '39789012', 2);
-INSERT INTO empleado (nombre, documento, id_rol) VALUES ('Valentina Romero', '40456789', 2);
-INSERT INTO empleado (nombre, documento, id_rol) VALUES ('Matias Acosta', '41123456', 2);
-INSERT INTO empleado (nombre, documento, id_rol) VALUES ('Camila Benitez', '42789012', 2);
-INSERT INTO empleado (nombre, documento, id_rol) VALUES ('Roberto Silva', '25456789', 3);
-INSERT INTO empleado (nombre, documento, id_rol) VALUES ('Florencia Ortiz', '26123456', 3);
-INSERT INTO empleado (nombre, documento, id_rol) VALUES ('Lionel Messi', '25456722', 4);
-INSERT INTO empleado (nombre, documento, id_rol) VALUES ('Ariel Ortega', '26123499', 4);
+INSERT INTO empleado (nombre ,apellido ,documento, id_rol) VALUES ('Carlos', 'Gomez', '28123456', 1);
+INSERT INTO empleado (nombre ,apellido ,documento, id_rol) VALUES ('Ana', 'Fernandez', '30789012', 1);
+INSERT INTO empleado (nombre ,apellido ,documento, id_rol) VALUES ('Juan', 'Perez', '32456789', 2);
+INSERT INTO empleado (nombre ,apellido ,documento, id_rol) VALUES ('Maria', 'Rodriguez', '33123456', 2);
+INSERT INTO empleado (nombre ,apellido ,documento, id_rol) VALUES ('Pedro', 'Martinez', '31789012', 2);
+INSERT INTO empleado (nombre ,apellido ,documento, id_rol) VALUES ('Laura', 'Sanchez', '34456789', 2);
+INSERT INTO empleado (nombre ,apellido ,documento, id_rol) VALUES ('Diego', 'Lopez', '35123456', 2);
+INSERT INTO empleado (nombre ,apellido ,documento, id_rol) VALUES ('Sofia', 'Diaz', '36789012', 2);
+INSERT INTO empleado (nombre ,apellido ,documento, id_rol) VALUES ('Martin', 'Gonzalez', '37456789', 2);
+INSERT INTO empleado (nombre ,apellido ,documento, id_rol) VALUES ('Lucia', 'Torres', '38123456', 2);
+INSERT INTO empleado (nombre ,apellido ,documento, id_rol) VALUES ('Javier', 'Ramirez', '39789012', 2);
+INSERT INTO empleado (nombre ,apellido ,documento, id_rol) VALUES ('Valentina', 'Romero', '40456789', 2);
+INSERT INTO empleado (nombre ,apellido ,documento, id_rol) VALUES ('Matias', 'Acosta', '41123456', 2);
+INSERT INTO empleado (nombre ,apellido ,documento, id_rol) VALUES ('Camila', 'Benitez', '42789012', 2);
+INSERT INTO empleado (nombre ,apellido ,documento, id_rol) VALUES ('Roberto', 'Silva', '25456789', 3);
+INSERT INTO empleado (nombre ,apellido ,documento, id_rol) VALUES ('Florencia', 'Ortiz', '26123456', 3);
+INSERT INTO empleado (nombre ,apellido ,documento, id_rol) VALUES ('Lionel', 'Messi', '25456722', 4);
+INSERT INTO empleado (nombre ,apellido ,documento, id_rol) VALUES ('Ariel', 'Ortega', '26123499', 4);
 
 -- CLIENTES (40 en total)
 INSERT INTO cliente (nombre, documento, direccion) VALUES ('Supermercado La Estrella', '30112233445', 'Av. Corrientes 1234');

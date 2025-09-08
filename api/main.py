@@ -133,7 +133,7 @@ def resolve_employee_id(dni: str = Query(...), _ok=Depends(require_api_key)):
         emp = get_employee_by_dni(db, dni)
         if not emp:
             raise HTTPException(status_code=404, detail="Empleado no encontrado")
-        return {"id": emp.id}
+        return {"id": emp["id"]}
 
 
 @app.post("/registrar_rostro", response_model=dict)
