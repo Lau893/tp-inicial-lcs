@@ -40,18 +40,20 @@
 
       const $ = (id) => document.getElementById(id);
       const overlay = $('overlay');
-      const CONFIG = { MODEL_URL: '/model/face_embedder.onnx', INTERVAL_MS: 600, THRESH: 0.30, WINDOW: 7, MIN_HITS: 4 };
+      const CONFIG = { MODEL_URL: '/model/face_embedder.onnx', INTERVAL_MS: 600, THRESH: 0.35, WINDOW: 5, MIN_HITS: 3 };
       const MISS_TIMEOUT_MS = 2000; // limpiar si no hay match por 2s
+      const DEBUG = (new URLSearchParams(location.search).get('debug') === '1');
       let ortSession = null; let gallery = []; let ring = []; let currentStable = { id:null, distance: Infinity };
       let missCount = 0;
 
       function setOverlay(text, ok=false){ overlay.textContent = text; overlay.style.color = ok ? '#0a7' : '#eee'; }
+      function setDebug(text){ if (!DEBUG) return; let el = document.getElementById('dbg'); if(!el){ el=document.createElement('div'); el.id='dbg'; el.style.position='absolute'; el.style.right='12px'; el.style.bottom='12px'; el.style.padding='6px 8px'; el.style.fontSize='12px'; el.style.background='rgba(0,0,0,.5)'; el.style.border='1px solid #444'; el.style.borderRadius='6px'; document.body.appendChild(el);} el.textContent = text; }
       function updateButtons(){
-        const has = !!currentStable.id;
+        // Mantener botones siempre habilitados; el handler ya valida match estable
         const bin = document.getElementById('btnIn');
         const beg = document.getElementById('btnEg');
-        if (bin) bin.disabled = !has;
-        if (beg) beg.disabled = !has;
+        if (bin) bin.disabled = false;
+        if (beg) beg.disabled = false;
       }
       const warn=(...a)=>console.warn('[totem]',...a);
 
@@ -86,15 +88,16 @@
       async function loop2(){
         try{
           const q = await embedFrame();
-          if (!q || !gallery.length) { currentStable.id=null; currentStable.distance=Infinity; setOverlay('Desconocido'); updateButtons(); missCount++; return; }
+          if (!q || !gallery.length) { currentStable.id=null; currentStable.distance=Infinity; setOverlay('Desconocido'); setDebug('no-frame'); updateButtons(); missCount++; return; }
           let bestId=null,bestDist=Infinity,second=Infinity;
           for (const item of gallery) {
             const d = cosineDistance(q, item.emb);
             if (d < bestDist) { second = bestDist; bestDist = d; bestId = item.id; }
             else if (d < second) { second = d; }
           }
-          const marginOk = (second - bestDist) >= 0.06;
+          const marginOk = (second - bestDist) >= 0.03;
           const accepted = (bestDist <= CONFIG.THRESH && marginOk) ? bestId : null;
+          setDebug(`best=${bestId} d=${bestDist.toFixed(3)} Δ=${(second-bestDist).toFixed(3)} ok=${accepted!==null}`);
           ring.push(accepted);
           if (ring.length > CONFIG.WINDOW) ring.shift();
           const hits = ring.filter(x => x !== null && x === bestId).length;
@@ -136,6 +139,7 @@
           await startCamera();
           await loadModel();
           await warmupBackend();
+          setOverlay('Desconocido');
           await loadGallery();
           setInterval(loop2, CONFIG.INTERVAL_MS);
         }catch(e){
