@@ -40,7 +40,7 @@
 
       const $ = (id) => document.getElementById(id);
       const overlay = $('overlay');
-      const CONFIG = { MODEL_URL: '/model/face_embedder.onnx', INTERVAL_MS: 600, THRESH: 0.38, WINDOW: 5, MIN_HITS: 3 };
+      const CONFIG = { MODEL_URL: '/model/face_embedder.onnx', INTERVAL_MS: 600, THRESH: 0.30, WINDOW: 7, MIN_HITS: 4 };
       let ortSession = null; let gallery = []; let ring = []; let currentStable = { id:null, distance: Infinity };
 
       function setOverlay(text, ok=false){ overlay.textContent = text; overlay.style.color = ok ? '#0a7' : '#eee'; }
@@ -57,6 +57,34 @@
       async function embedFrame(){ if(!ortSession) return null; const input=preprocess($('cam')); const feeds={}; const name=ortSession.inputNames?ortSession.inputNames[0]:Object.keys(ortSession.inputNames||{})[0]; feeds[name]=new ort.Tensor('float32',input,[1,3,112,112]); const out=await ortSession.run(feeds); const first=out[ortSession.outputNames?ortSession.outputNames[0]:Object.keys(out)[0]]; return l2norm(new Float32Array(first.data)); }
 
       async function loop(){ try{ const q=await embedFrame(); if(!q||!gallery.length){ setOverlay('Preparando…'); return; } let bestId=null,bestDist=Infinity; for(const item of gallery){ const d=cosineDistance(q,item.emb); if(d<bestDist){ bestDist=d; bestId=item.id; } } const accepted=bestDist<=CONFIG.THRESH?bestId:null; ring.push(accepted); if(ring.length>CONFIG.WINDOW) ring.shift(); const hits=ring.filter(x=>x!==null&&x===bestId).length; if(accepted&&hits>=CONFIG.MIN_HITS){ currentStable.id=bestId; currentStable.distance=bestDist; setOverlay(`Empleado #${bestId}` ,true); } else { currentStable.id=null; currentStable.distance=Infinity; setOverlay('Desconocido'); } } catch(e){ warn('Loop:', e.message); }
+      }
+
+      // Versión robusta del loop con margen entre el 1º y 2º mejor
+      async function loop2(){
+        try{
+          const q = await embedFrame();
+          if (!q || !gallery.length) { setOverlay('Desconocido'); return; }
+          let bestId=null,bestDist=Infinity,second=Infinity;
+          for (const item of gallery) {
+            const d = cosineDistance(q, item.emb);
+            if (d < bestDist) { second = bestDist; bestDist = d; bestId = item.id; }
+            else if (d < second) { second = d; }
+          }
+          const marginOk = (second - bestDist) >= 0.05;
+          const accepted = (bestDist <= CONFIG.THRESH && marginOk) ? bestId : null;
+          ring.push(accepted);
+          if (ring.length > CONFIG.WINDOW) ring.shift();
+          const hits = ring.filter(x => x !== null && x === bestId).length;
+          if (accepted && hits >= CONFIG.MIN_HITS) {
+            currentStable.id = bestId;
+            currentStable.distance = bestDist;
+            setOverlay(`Empleado #${bestId}`, true);
+          } else {
+            currentStable.id = null;
+            currentStable.distance = Infinity;
+            setOverlay('Desconocido');
+          }
+        } catch(e){ warn('Loop2:', e.message); }
       }
 
       async function warmupBackend(retries=3){
@@ -82,7 +110,7 @@
           await loadModel();
           await warmupBackend();
           await loadGallery();
-          setInterval(loop, CONFIG.INTERVAL_MS);
+          setInterval(loop2, CONFIG.INTERVAL_MS);
         }catch(e){
           setOverlay(`Error: ${e.message||e}`, false);
         }
