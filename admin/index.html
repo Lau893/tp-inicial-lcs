@@ -150,8 +150,8 @@
       const clear = (el) => { el.className=''; el.textContent=''; };
 
       const state = {
-        token: localStorage.getItem('admin_token') || null,
-        setToken(t){ this.token=t; if(t) localStorage.setItem('admin_token', t); else localStorage.removeItem('admin_token'); render(); }
+        token: sessionStorage.getItem('admin_token') || null,
+        setToken(t){ this.token=t; if(t) sessionStorage.setItem('admin_token', t); else sessionStorage.removeItem('admin_token'); render(); }
       };
 
       // Backend badge removido

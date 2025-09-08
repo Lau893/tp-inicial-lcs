@@ -99,5 +99,22 @@
       if (window.CONFIG && window.CONFIG.API_BASE) { API_BASE = window.CONFIG.API_BASE; }
       if (window.CONFIG && window.CONFIG.TOTEM_API_KEY) { API_KEY = window.CONFIG.TOTEM_API_KEY; }
     </script>
+    <script>
+      // Refrescar galería cada 3s y limpiar overlay si la cámara está inactiva
+      setInterval(function(){ try { if (typeof loadGallery==='function') loadGallery(); } catch(_){} }, 3000);
+      setInterval(function(){
+        try {
+          var v = document.getElementById('cam');
+          var stream = v && v.srcObject;
+          var tracks = stream ? stream.getVideoTracks() : [];
+          var live = tracks.some(function(t){ return t.readyState==='live'; });
+          if (!live || (v && v.readyState < 2)) {
+            if (typeof currentStable!=='undefined' && currentStable){ currentStable.id=null; currentStable.distance=Infinity; }
+            if (typeof ring!=='undefined'){ ring = []; }
+            var ov = document.getElementById('overlay'); if (ov){ ov.textContent='Cámara inactiva'; ov.style.color='#eee'; }
+          }
+        } catch(_){}
+      }, 1000);
+    </script>
   </body>
   </html>
