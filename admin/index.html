@@ -377,6 +377,18 @@
     </script>
     <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
     <script>
+      // Wake-up del backend para evitar cold start en plan free
+      (async function warm(){
+        const msg = document.getElementById('loginMsg');
+        try{
+          if (msg) { msg.className='muted'; msg.textContent='Iniciando backend...'; }
+          const res = await fetch((window.CONFIG?.API_BASE || (typeof API_BASE!=='undefined'?API_BASE:'')) + '/healthz', { method:'GET', cache:'no-store' });
+          if (!res.ok) throw new Error('Backend no disponible');
+        }catch(e){ /* silencioso */ }
+        finally { if (msg) { msg.textContent=''; msg.className=''; } }
+      })();
+    </script>
+    <script>
       // Por defecto, intentamos cargar un modelo local servido en /model/face_embedder.onnx
       window.CONFIG = { API_BASE: 'https://administracion-pyme-alimenticia.onrender.com', MODEL_URL: '/model/face_embedder.onnx' };
     </script>
