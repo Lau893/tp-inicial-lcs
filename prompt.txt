@@ -1,0 +1,182 @@
+Proyecto: Sistema de Control de Asistencia con Reconocimiento Facial (Web + Render)
+
+Objetivo general
+- Dos frontends estáticos (Admin y Tótem) y un backend FastAPI en Render.
+- Todo el cómputo de visión ocurre en el navegador; el backend solo autentica/valida y persiste en Postgres.
+
+URLs de despliegue (actuales)
+- Backend (FastAPI): https://administracion-pyme-alimenticia.onrender.com
+- Admin (Static Site): https://administracion-pyme-alimenticia-admin.onrender.com
+- Tótem (Static Site): https://administracion-pyme-alimenticia-totem.onrender.com
+
+Repos y estructura clave
+- Repo: Lau893/tp-inicial-lcs
+- Raíz del proyecto: tp-inicial-lcs/
+  - api/ (FastAPI)
+    - main.py (rutas, CORS, startup)
+    - database.py (SQL directo a esquema legacy, psycopg3)
+    - security.py (JWT admin, x-api-key del Tótem)
+    - schemas.py (Pydantic)
+    - rate_limit.py (Rate limit básico para /asistencia)
+  - admin/ (sitio estático Admin)
+    - index.html (UI, login, ABM, registrar rostro, reportes)
+    - model/face_embedder.onnx (modelo ONNX servido como archivo)
+  - totem/ (sitio estático Tótem)
+    - index.html (cámara, inferencia ONNX, matching local, asistencia)
+    - model/face_embedder.onnx (modelo ONNX)
+  - scripts/
+    - pg_legacy_schema.sql (esquema Postgres compatible)
+    - inserts.sql (semillas estáticas: producto, rol, empleado, cliente)
+    - create_db.py (aplica esquema + inserts)
+    - seed_synthetic.py (genera lotes/producción/ventas/asistencia con commits parciales y progreso)
+  - docker-compose.dev.yml (DB local + backend + admin + totem)
+  - requirements.txt (incluye fastapi, sqlalchemy, psycopg[binary], PyJWT, uvicorn, gunicorn)
+
+Arquitectura (resumen)
+- Admin (sitio estático):
+  - Login (DNI/Password), ABM empleados por DNI, registrar rostro (embedding calculado en el navegador), reportes.
+  - Config: window.CONFIG = { API_BASE, MODEL_URL }
+  - Persistencia de sesión: sessionStorage ('admin_token').
+- Tótem (sitio estático):
+  - Pantalla completa; cámara activa; muestra overlay con estado; botones Ingreso/Egreso.
+  - Matching local contra galería descargada del backend; envía solo eventos de asistencia con x-api-key.
+  - Config: window.CONFIG = { API_BASE, TOTEM_API_KEY }.
+- Backend (FastAPI):
+  - Rutas: /login, /employees (POST/GET), /employees/gallery, /employees/resolve, /registrar_rostro, /asistencia, /healthz.
+  - Seguridad: JWT admin (Authorization: Bearer) y x-api-key para tótem (header 'x-api-key').
+  - DB: Postgres (psycopg3, SQLAlchemy Engine); esquema legacy (tablas: rol, empleado, embedding, asistencia, etc.).
+
+Contratos de API (actuales)
+- POST /login (admin)
+  - body { dni, password } → { token, role: 'admin' }
+  - Modo env (ADMIN_DNI/ADMIN_PASSWORD) o modo legacy (DNI con rol Administrador y pass "<dni>a").
+- POST /employees (admin)
+  - body { dni, nombre, apellido, rol } → { id }
+- GET /employees?dni=123 (admin)
+  - → { id, dni, nombre, apellido, rol, embedding }
+- POST /registrar_rostro (admin)
+  - body { dni, embedding:number[] } → { ok: true }
+- GET /employees/gallery (tótem)
+  - headers: { 'x-api-key': <TOTEM_API_KEY> } → [{ id, embedding }]
+- GET /employees/resolve?dni=... (tótem)
+  - headers: x-api-key → { id }
+- POST /asistencia (tótem)
+  - headers: x-api-key
+  - body { id_empleado, tipo:'ingreso'|'egreso', distancia, origen } → { ok: true, id }
+  - Rate limit básico (rate_limit.py)
+- GET /healthz → { ok: true }
+
+Esquema de datos (legacy) — scripts/pg_legacy_schema.sql
+- producto(id_producto, nombre, precio)
+- lote(id_lote, id_producto, cantidad, fecha_ingreso, fecha_vto)
+- rol(id_rol, nombre)
+- empleado(id_empleado, nombre, apellido, documento, id_rol)
+- produccion(id_produccion, id_lote, id_empleado, fecha_prod, cantidad_out, tiempo_horas)
+- cliente(id_cliente, nombre, documento, direccion)
+- venta(id_venta, id_cliente, id_producto, cantidad, fecha_venta)
+- asistencia(id_empleado, fecha, tipo in ('entrada','salida'))  [sin PK propia]
+- embedding(id_embedding, id_empleado, embedding_data TEXT)      [JSON serializado]
+
+Semillas y datos
+- inserts.sql: carga producto/rol/empleado/cliente (no carga lote/producción/venta/asistencia/embedding).
+- create_db.py: aplica pg_legacy_schema.sql + inserts.sql (usa psycopg3; normaliza postgresql+psycopg:// → postgresql://).
+- seed_synthetic.py: genera datos sintéticos (commit parciales y logs de progreso). Flags: --truncate, --months, --lots-min, --lots-max, --no-asistencia, --no-ventas.
+
+Visión (en el navegador)
+- Modelo: ONNX (face_embedder.onnx, MobileFaceNet/SFace equivalente). Servido desde /model/face_embedder.onnx.
+- Preproceso: recorte centrado cuadrado a 112x112 RGB; normalización (x/127.5 - 1.0); orden NCHW.
+- Salida: normalización L2 del embedding.
+- Distancia: 1 - coseno (menor es mejor).
+
+Tótem — lógica de matching (optimizaciones actuales)
+- Parámetros: THRESH=0.35, WINDOW=5, MIN_HITS=3 (ajustables en const CONFIG en totem/index.html).
+- Margen entre el 1º y 2º mejor: Δ ≥ 0.03 además del THRESH.
+- Limpieza por inactividad: si no hay frame o galería → overlay = 'Desconocido', currentStable.id = null.
+- Refresco de galería: cada 3 segundos.
+- warmupBackend: llama /healthz para mitigar cold start de Render (plan free).
+- Botones Ingreso/Egreso: siempre habilitados; el handler valida match estable y muestra error si no corresponde.
+- Debug opcional: ?debug=1 en la URL muestra bestId, distancia y Δ.
+
+Admin — flujo principal
+- Login → token JWT en sessionStorage ('admin_token').
+- Crear empleado → POST /employees.
+- Consultar empleado por DNI → GET /employees?dni=...
+- Registrar rostro → usa onnxruntime-web si el modelo carga; si no, fallback sintético (evitar para producción).
+- Reportes: renderiza imágenes desde admin/assets/imagenes_datos (copiadas desde data/imagenes_datos).
+
+Seguridad
+- JWT admin: HS256, secreto en JWT_SECRET; TTL por defecto 8h (create_jwt en api/security.py).
+- Tótem: header 'x-api-key' comparado contra TOTEM_API_KEY (api/security.py); preflight CORS permitido.
+- CORS: ALLOWED_ORIGINS debe listar las URLs exactas de Admin y Tótem (https, sin slash final).
+
+Variables de entorno (Render — Backend)
+- DATABASE_URL: postgresql+psycopg://pyme_alimenticia_db_user:...@dpg-....oregon-postgres.render.com:5432/pyme_alimenticia_db?sslmode=require
+- JWT_SECRET: prod-jwt-secret-3f9f1c3b7e0d4b2bb8b0e1b7a6c4d9f2-0a7c6e3f1a
+- TOTEM_API_KEY: prod-totem-key-8d73c5c2f1a94d5e9b3a
+- ALLOWED_ORIGINS: https://administracion-pyme-alimenticia-admin.onrender.com,https://administracion-pyme-alimenticia-totem.onrender.com
+- (Opcionales) ADMIN_DNI / ADMIN_PASSWORD para login por env; si faltan, se usa login legacy (DNI admin + "<dni>a").
+
+Configuración frontends (en HTML)
+- Admin: window.CONFIG = { API_BASE: 'https://administracion-pyme-alimenticia.onrender.com', MODEL_URL: '/model/face_embedder.onnx' }.
+- Tótem: window.CONFIG = { API_BASE: 'https://administracion-pyme-alimenticia.onrender.com', TOTEM_API_KEY: 'prod-totem-key-8d73c5c2f1a94d5e9b3a' }.
+- Nota: las claves en sitios estáticos son visibles por diseño; los endpoints del tótem no exponen datos civiles.
+
+Despliegue en Render (resumen)
+- Backend (Web Service):
+  - Root: . (repo raíz)
+  - Build: pip install -r requirements.txt
+  - Start: gunicorn -k uvicorn.workers.UvicornWorker -w 1 api.main:app
+  - Health: /healthz
+  - Env: (ver sección anterior)
+- Admin / Tótem (Static Sites):
+  - Root Directory: admin / totem
+  - Build: (vacío)
+  - Publish Directory: .
+
+Ejecución local
+- Sin Docker:
+  - cd tp-inicial-lcs && pip install -r requirements.txt
+  - Exportar envs (DATABASE_URL, JWT_SECRET, etc.)
+  - uvicorn api.main:app --reload --port 8000
+- Con compose (incluye Postgres):
+  - docker compose -f tp-inicial-lcs/docker-compose.dev.yml up --build
+  - Servicios: DB(5432), backend(8000), admin(5173), totem(5174)
+
+Comandos de verificación (curl)
+- Health: curl https://administracion-pyme-alimenticia.onrender.com/healthz
+- Login admin (legacy):
+  curl -X POST https://administracion-pyme-alimenticia.onrender.com/login \
+    -H "Content-Type: application/json" \
+    -d "{\"dni\":\"<DNI_ADMIN>\",\"password\":\"<DNI_ADMIN>a\"}"
+- Galería (tótem):
+  curl -H "x-api-key: prod-totem-key-8d73c5c2f1a94d5e9b3a" \
+    https://administracion-pyme-alimenticia.onrender.com/employees/gallery
+- Asistencia (tótem):
+  curl -X POST https://administracion-pyme-alimenticia.onrender.com/asistencia \
+    -H "x-api-key: prod-totem-key-8d73c5c2f1a94d5e9b3a" -H "Content-Type: application/json" \
+    -d "{\"id_empleado\":1,\"tipo\":\"ingreso\",\"distancia\":0.33,\"origen\":\"totem\"}"
+
+Problemas comunes y soluciones rápidas
+- CORS (Failed to fetch desde navegador):
+  - Verificar ALLOWED_ORIGINS exacto (https, sin slash final) y redeploy backend.
+  - Asegurar que Admin/Tótem usan API_BASE del backend en Render (no localhost).
+- Cold start (plan free):
+  - Primer request puede demorar ~50s; frontends hacen warmup a /healthz.
+- DATABASE_URL mal formada (idna codec / label empty):
+  - Usar URL completa sin "…", con :5432 y ?sslmode=require, una sola línea.
+- Tótem no matchea o queda pegado:
+  - Verificar que el Admin registró embedding con el modelo (no fallback).
+  - Ajustar THRESH/WINDOW/MIN_HITS y margen Δ según d/Δ observados (?debug=1).
+  - Revisar que la cámara está activa y el frame listo (el front ya limpia a 'Desconocido' si no).
+
+Pendientes / mejoras futuras
+- Agregar PK a asistencia (id bigserial) para devolver id real del registro en backend.
+- Migrar de esquema legacy a esquema objetivo (empleados emb jsonb, asistencias con constraints por día y tipo).
+- Separar configuración de frontends en config.js por entorno en vez de embebido en HTML.
+- Detector de rostro en el navegador para mejorar recorte (evitar falso matching con fondos).
+
+Notas de mantenimiento
+- No guardar secretos en el repo; Render Environment es la fuente de verdad.
+- Para depurar front estático en Render, usar hard refresh (Ctrl+F5) o agregar ?v=timestamp y ?debug=1 en Tótem.
+- seed_synthetic.py ahora muestra progreso y hace commits parciales (lotes/ventas/asistencia); en bases remotas puede tardar.
+
