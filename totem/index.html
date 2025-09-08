@@ -59,7 +59,34 @@
       async function loop(){ try{ const q=await embedFrame(); if(!q||!gallery.length){ setOverlay('Preparando…'); return; } let bestId=null,bestDist=Infinity; for(const item of gallery){ const d=cosineDistance(q,item.emb); if(d<bestDist){ bestDist=d; bestId=item.id; } } const accepted=bestDist<=CONFIG.THRESH?bestId:null; ring.push(accepted); if(ring.length>CONFIG.WINDOW) ring.shift(); const hits=ring.filter(x=>x!==null&&x===bestId).length; if(accepted&&hits>=CONFIG.MIN_HITS){ currentStable.id=bestId; currentStable.distance=bestDist; setOverlay(`Empleado #${bestId}` ,true); } else { currentStable.id=null; currentStable.distance=Infinity; setOverlay('Desconocido'); } } catch(e){ warn('Loop:', e.message); }
       }
 
-      async function init(){ await startCamera(); await loadModel(); await loadGallery(); setInterval(loop, CONFIG.INTERVAL_MS); }
+      async function warmupBackend(retries=3){
+        try{
+          setOverlay('Iniciando backend...');
+          const ctrl = new AbortController();
+          const t = setTimeout(()=>ctrl.abort(), 15000);
+          const res = await fetch(`${API_BASE}/healthz`, { method:'GET', cache:'no-store', signal: ctrl.signal });
+          clearTimeout(t);
+          if(!res.ok) throw new Error('Backend no disponible');
+        }catch(e){
+          if(retries>0){
+            await new Promise(r=>setTimeout(r, 5000));
+            return warmupBackend(retries-1);
+          }
+          throw e;
+        }
+      }
+
+      async function init(){
+        try{
+          await startCamera();
+          await loadModel();
+          await warmupBackend();
+          await loadGallery();
+          setInterval(loop, CONFIG.INTERVAL_MS);
+        }catch(e){
+          setOverlay(`Error: ${e.message||e}`, false);
+        }
+      }
       async function enviarAsistencia(tipo){ try{ if(!currentStable.id) throw new Error('Sin match estable'); const res=await fetch(`${API_BASE}/asistencia`,{method:'POST',headers:{'x-api-key':API_KEY,'Content-Type':'application/json'},body:JSON.stringify({id_empleado:currentStable.id,tipo,distancia:currentStable.distance||0,origen:'totem'})}); const data=await res.json(); if(!res.ok) throw new Error(data.detail||res.statusText); setOverlay(`${tipo} OK`,true);}catch(e){ setOverlay(e.message,false);} }
 
       $('btnIn').onclick=()=>enviarAsistencia('ingreso'); $('btnEg').onclick=()=>enviarAsistencia('egreso');
