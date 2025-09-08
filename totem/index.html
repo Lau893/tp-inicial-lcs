@@ -34,8 +34,8 @@
     </main>
 
     <script>
-      const API_BASE = (window.CONFIG && window.CONFIG.API_BASE) || 'http://localhost:8000';
-      const API_KEY = (window.CONFIG && window.CONFIG.TOTEM_API_KEY) || 'dev-totem-key';
+      let API_BASE = (window.CONFIG && window.CONFIG.API_BASE) || 'http://localhost:8000';
+      let API_KEY = (window.CONFIG && window.CONFIG.TOTEM_API_KEY) || 'dev-totem-key';
       (function(){ const el = document.getElementById('apiBase'); if (el) el.textContent = API_BASE; })();
 
       const $ = (id) => document.getElementById(id);
@@ -94,5 +94,10 @@
     <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
     <script> if (navigator.mediaDevices?.getUserMedia) { init(); } </script>
     <script>window.CONFIG = { API_BASE: 'https://administracion-pyme-alimenticia.onrender.com', TOTEM_API_KEY: 'prod-totem-key-8d73c5c2f1a94d5e9b3a' };</script>
+    <script>
+      // Asegurar que las constantes usen la config final
+      if (window.CONFIG && window.CONFIG.API_BASE) { API_BASE = window.CONFIG.API_BASE; }
+      if (window.CONFIG && window.CONFIG.TOTEM_API_KEY) { API_KEY = window.CONFIG.TOTEM_API_KEY; }
+    </script>
   </body>
   </html>
