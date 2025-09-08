@@ -141,7 +141,7 @@
     </main>
 
     <script>
-      const API_BASE = (window.CONFIG && window.CONFIG.API_BASE) || 'http://localhost:8000';
+      let API_BASE = (window.CONFIG && window.CONFIG.API_BASE) || 'http://localhost:8000';
       const $ = (id) => document.getElementById(id);
       const by = (sel) => document.querySelector(sel);
       const all = (sel) => Array.from(document.querySelectorAll(sel));
